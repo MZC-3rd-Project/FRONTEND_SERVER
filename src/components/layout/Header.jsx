@@ -149,7 +149,7 @@ export default function Header({
 
     return (
         <nav className={cn(["flex px-20 h-16 items-center justify-between backdrop-blur fixed top-0 left-0 right-0 z-50 bg-background/50",
-            !isScrolled && "bg-[#72e3ad]",
+            !isScrolled && "bg-[#5dabdf]",
             isScrolled && "bg-transparent"
         ])}>
             <div className="flex items-center">
