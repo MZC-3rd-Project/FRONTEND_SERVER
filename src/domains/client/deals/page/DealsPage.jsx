@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { Flame, Timer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,8 @@ function DealsPage() {
                                             {deal.left}
                                         </p>
                                     </div>
-                                    <Button size="sm" className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700">
-                                        지금 구매
+                                    <Button asChild size="sm" className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700">
+                                        <Link to={`/deals/${deal.id}`}>상세 보기</Link>
                                     </Button>
                                 </div>
                             </CardContent>

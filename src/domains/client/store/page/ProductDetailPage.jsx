@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router";
+import { useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
 import { Calendar, MapPin, Package, Star, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,21 @@ function ratingText(rating) {
 
 function ProductDetailPage() {
     const { storeId, productType, productId } = useParams();
+    const [searchParams] = useSearchParams();
     const result = findStoreProduct(storeId, productType, productId);
+    const isTicket = result?.productType === "ticket";
+    const product = result?.product;
+    const tiers = product?.tiers ?? [];
+    const preferredTicketGrade = searchParams.get("ticketGrade") ?? "";
+    const [selectedTierGrade, setSelectedTierGrade] = useState(preferredTicketGrade);
+    const resolvedTierGrade =
+        tiers.find((tier) => tier.grade === selectedTierGrade)?.grade ??
+        tiers.find((tier) => tier.grade === preferredTicketGrade)?.grade ??
+        tiers[0]?.grade ??
+        "";
+    const selectedTier = isTicket
+        ? tiers.find((tier) => tier.grade === resolvedTierGrade) ?? null
+        : null;
 
     if (!result) {
         return (
@@ -34,9 +49,10 @@ function ProductDetailPage() {
         );
     }
 
-    const { store, product } = result;
-    const isTicket = result.productType === "ticket";
-    const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}`;
+    const { store } = result;
+
+    const ticketQuery = isTicket && selectedTier ? `&ticketGrade=${encodeURIComponent(selectedTier.grade)}` : "";
+    const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}${ticketQuery}`;
     const detailSections = isTicket
         ? [
             {
@@ -108,6 +124,11 @@ function ProductDetailPage() {
                                         <MapPin className="h-3.5 w-3.5" />
                                         {product.venue}
                                     </p>
+                                    {selectedTier && (
+                                        <p className="text-xs font-semibold text-zinc-800">
+                                            선택 좌석: {selectedTier.grade} · {selectedTier.price} ({selectedTier.remaining}석 남음)
+                                        </p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-1 text-sm text-zinc-600">
@@ -119,9 +140,19 @@ function ProductDetailPage() {
                             )}
 
                             <div className="flex gap-2 pt-1">
-                                <Button asChild className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700">
-                                    <Link to={directCheckoutLink}>바로 구매</Link>
-                                </Button>
+                                {isTicket ? (
+                                    <Button
+                                        asChild
+                                        disabled={!selectedTier || selectedTier.remaining <= 0}
+                                        className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600"
+                                    >
+                                        <Link to={directCheckoutLink}>선택 좌석으로 구매</Link>
+                                    </Button>
+                                ) : (
+                                    <Button asChild className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700">
+                                        <Link to={directCheckoutLink}>바로 구매</Link>
+                                    </Button>
+                                )}
                                 <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-5 text-zinc-700 hover:bg-zinc-100">
                                     <Link to={`/store/${store.id}`}>가게로 이동</Link>
                                 </Button>
@@ -129,6 +160,74 @@ function ProductDetailPage() {
                         </div>
                     </div>
                 </section>
+
+                {isTicket && (
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Ticket className="h-5 w-5 text-cyan-700" />
+                            <h3 className="text-xl font-bold text-zinc-900">티켓 정보</h3>
+                        </div>
+
+                        <Card className="border-zinc-200/80 bg-white/95">
+                            <CardContent className="space-y-3 pt-5 text-sm text-zinc-600">
+                                <p className="inline-flex items-center gap-1">
+                                    <Calendar className="h-4 w-4" />
+                                    공연 일정: {product.eventDate}
+                                </p>
+                                <p className="inline-flex items-center gap-1">
+                                    <MapPin className="h-4 w-4" />
+                                    공연 장소: {product.venue}
+                                </p>
+                                <div>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">좌석 선택</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {product.tiers.map((tier) => (
+                                            <button
+                                                key={tier.grade}
+                                                type="button"
+                                                onClick={() => setSelectedTierGrade(tier.grade)}
+                                                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                                                    resolvedTierGrade === tier.grade
+                                                        ? "border-zinc-900 bg-zinc-900 text-white"
+                                                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500"
+                                                }`}
+                                            >
+                                                {tier.grade} · {tier.price}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+                                    <table className="w-full min-w-[500px] text-left text-sm">
+                                        <thead className="text-xs uppercase tracking-wide text-zinc-500">
+                                            <tr className="border-b border-zinc-200">
+                                                <th className="px-2 py-2 font-semibold">등급</th>
+                                                <th className="px-2 py-2 font-semibold">가격</th>
+                                                <th className="px-2 py-2 font-semibold">잔여석</th>
+                                                <th className="px-2 py-2 font-semibold">총 좌석</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {product.tiers.map((tier) => (
+                                                <tr
+                                                    key={tier.grade}
+                                                    className={`border-b text-zinc-700 ${
+                                                        resolvedTierGrade === tier.grade ? "border-cyan-200 bg-cyan-50/60" : "border-zinc-100"
+                                                    }`}
+                                                >
+                                                    <td className="px-2 py-2 font-semibold text-zinc-900">{tier.grade}</td>
+                                                    <td className="px-2 py-2">{tier.price}</td>
+                                                    <td className="px-2 py-2">{tier.remaining}석</td>
+                                                    <td className="px-2 py-2">{tier.total}석</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </section>
+                )}
 
                 <section className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
                     <Card className="border-zinc-200/80 bg-white/95">
@@ -199,41 +298,7 @@ function ProductDetailPage() {
                     ))}
                 </section>
 
-                {isTicket ? (
-                    <section className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <Ticket className="h-5 w-5 text-cyan-700" />
-                            <h3 className="text-xl font-bold text-zinc-900">좌석 등급 정보</h3>
-                        </div>
-
-                        <Card className="border-zinc-200/80 bg-white/95">
-                            <CardContent className="pt-5">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full min-w-[500px] text-left text-sm">
-                                        <thead className="text-xs uppercase tracking-wide text-zinc-500">
-                                            <tr className="border-b border-zinc-200">
-                                                <th className="px-2 py-2 font-semibold">등급</th>
-                                                <th className="px-2 py-2 font-semibold">가격</th>
-                                                <th className="px-2 py-2 font-semibold">잔여석</th>
-                                                <th className="px-2 py-2 font-semibold">총 좌석</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {product.tiers.map((tier) => (
-                                                <tr key={tier.grade} className="border-b border-zinc-100 text-zinc-700">
-                                                    <td className="px-2 py-2 font-semibold text-zinc-900">{tier.grade}</td>
-                                                    <td className="px-2 py-2">{tier.price}</td>
-                                                    <td className="px-2 py-2">{tier.remaining}석</td>
-                                                    <td className="px-2 py-2">{tier.total}석</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </section>
-                ) : (
+                {!isTicket && (
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Package className="h-5 w-5 text-violet-700" />

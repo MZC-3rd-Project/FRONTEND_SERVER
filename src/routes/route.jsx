@@ -11,6 +11,7 @@ import ProductDetailPage from "@/domains/client/store/page/ProductDetailPage.jsx
 import SalesPage from "@/domains/client/sales/page/SalesPage.jsx";
 import SalesDetailPage from "@/domains/client/sales/page/SalesDetailPage.jsx";
 import DealsPage from "@/domains/client/deals/page/DealsPage.jsx";
+import DealDetailPage from "@/domains/client/deals/page/DealDetailPage.jsx";
 import SellerCenterPage from "@/domains/client/seller/page/SellerCenterPage.jsx";
 import CartPage from "@/domains/client/cart/page/CartPage.jsx";
 import CheckoutPage from "@/domains/client/checkout/page/CheckoutPage.jsx";
@@ -47,6 +48,7 @@ function AppRoutes() {
                 <Route path="/store/:storeId" element={<StoreDetailPage />} />
                 <Route path="/store/:storeId/product/:productType/:productId" element={<ProductDetailPage />} />
                 <Route path="/deals" element={<DealsPage />} />
+                <Route path="/deals/:dealId" element={<DealDetailPage />} />
                 <Route path="/seller" element={<SellerCenterPage />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />

@@ -95,7 +95,7 @@ const searchResults = [
         thumbnail: deal.thumbnail,
         subtitle: `${deal.price} · ${deal.discount}`,
         meta: `남은 시간 ${deal.left}`,
-        to: "/deals",
+        to: `/deals/${deal.id}`,
         badge: "타임세일",
         searchText: `${deal.title} ${deal.category} ${deal.discount}`,
     })),

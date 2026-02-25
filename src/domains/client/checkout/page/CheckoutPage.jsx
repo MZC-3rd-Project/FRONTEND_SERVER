@@ -29,23 +29,25 @@ function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     return 0;
 }
 
-function buildDirectCheckoutItem(storeId, productType, productId) {
+function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade) {
     const result = findStoreProduct(storeId, productType, productId);
     if (!result) return null;
 
     const { store, product } = result;
     if (productType === "ticket") {
-        const firstTier = product.tiers[0];
+        const selectedTier =
+            product.tiers.find((tier) => tier.grade === ticketGrade) ??
+            product.tiers[0];
         return {
             id: `direct-ticket-${product.id}`,
             kind: "티켓형",
             storeId: store.id,
             storeName: store.name,
             name: product.name,
-            option: firstTier ? `${firstTier.grade} · ${product.eventDate}` : product.eventDate,
+            option: selectedTier ? `${selectedTier.grade} · ${product.eventDate}` : product.eventDate,
             thumbnail: product.thumbnail,
             quantity: 1,
-            unitPrice: firstTier ? parsePriceText(firstTier.price) : 0,
+            unitPrice: selectedTier ? parsePriceText(selectedTier.price) : 0,
         };
     }
 
@@ -69,12 +71,25 @@ function CheckoutPage() {
     const directStoreId = searchParams.get("storeId") ?? "";
     const directProductType = searchParams.get("productType") ?? "";
     const directProductId = searchParams.get("productId") ?? "";
+    const directTicketGrade = searchParams.get("ticketGrade") ?? "";
 
     const directItem = useMemo(
-        () => (directMode ? buildDirectCheckoutItem(directStoreId, directProductType, directProductId) : null),
-        [directMode, directStoreId, directProductType, directProductId]
+        () =>
+            directMode
+                ? buildDirectCheckoutItem(directStoreId, directProductType, directProductId, directTicketGrade)
+                : null,
+        [directMode, directProductId, directProductType, directStoreId, directTicketGrade]
     );
     const checkoutItems = useMemo(() => (directItem ? [directItem] : cartItems), [directItem]);
+    const directBackLink = useMemo(() => {
+        if (!directItem) return "/cart";
+
+        const ticketQuery =
+            directProductType === "ticket" && directTicketGrade
+                ? `?ticketGrade=${encodeURIComponent(directTicketGrade)}`
+                : "";
+        return `/store/${directItem.storeId}/product/${directProductType}/${directProductId}${ticketQuery}`;
+    }, [directItem, directProductId, directProductType, directTicketGrade]);
 
     const [selectedAddressId, setSelectedAddressId] = useState(shippingAddresses[0]?.id ?? "");
     const [selectedCouponId, setSelectedCouponId] = useState("");
@@ -325,7 +340,7 @@ function CheckoutPage() {
                             실패 화면 테스트
                         </Button>
                         <Button asChild variant="ghost" className="h-9 w-full rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800">
-                            <Link to={directItem ? `/store/${directItem.storeId}/product/${directProductType}/${directProductId}` : "/cart"}>
+                            <Link to={directBackLink}>
                                 {directItem ? "상품 상세로 돌아가기" : "장바구니로 돌아가기"}
                             </Link>
                         </Button>
