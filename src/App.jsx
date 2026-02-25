@@ -1,8 +1,8 @@
 import '@/css/App.css'
-import CommonRoute from "@/routes/route.jsx";
+import AppRoutes from "@/routes/route.jsx";
 
 function App() {
-  return <CommonRoute/>
+  return <AppRoutes />
 }
 
 export default App
