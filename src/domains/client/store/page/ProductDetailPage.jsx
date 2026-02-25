@@ -5,6 +5,7 @@ import { Calendar, MapPin, Package, Star, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
+import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 
 function ratingText(rating) {
@@ -19,7 +20,11 @@ function ProductDetailPage() {
     const product = result?.product;
     const tiers = product?.tiers ?? [];
     const preferredTicketGrade = searchParams.get("ticketGrade") ?? "";
+    const preferredTicketQuantity = Number(searchParams.get("ticketQuantity") ?? "1");
     const [selectedTierGrade, setSelectedTierGrade] = useState(preferredTicketGrade);
+    const [ticketQuantity, setTicketQuantity] = useState(
+        Number.isFinite(preferredTicketQuantity) && preferredTicketQuantity > 0 ? Math.floor(preferredTicketQuantity) : 1
+    );
     const resolvedTierGrade =
         tiers.find((tier) => tier.grade === selectedTierGrade)?.grade ??
         tiers.find((tier) => tier.grade === preferredTicketGrade)?.grade ??
@@ -28,6 +33,14 @@ function ProductDetailPage() {
     const selectedTier = isTicket
         ? tiers.find((tier) => tier.grade === resolvedTierGrade) ?? null
         : null;
+    const maxTicketQuantity = isTicket ? Math.min(8, Math.max(0, selectedTier?.remaining ?? 0)) : 1;
+    const safeTicketQuantity = isTicket
+        ? maxTicketQuantity > 0
+            ? Math.min(Math.max(ticketQuantity, 1), maxTicketQuantity)
+            : 0
+        : 1;
+    const selectedTierPrice = selectedTier ? parsePriceText(selectedTier.price) : 0;
+    const estimatedTicketAmount = selectedTierPrice * safeTicketQuantity;
 
     if (!result) {
         return (
@@ -52,7 +65,8 @@ function ProductDetailPage() {
     const { store } = result;
 
     const ticketQuery = isTicket && selectedTier ? `&ticketGrade=${encodeURIComponent(selectedTier.grade)}` : "";
-    const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}${ticketQuery}`;
+    const quantityQuery = isTicket && safeTicketQuantity > 0 ? `&ticketQuantity=${safeTicketQuantity}` : "";
+    const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}${ticketQuery}${quantityQuery}`;
     const detailSections = isTicket
         ? [
             {
@@ -126,7 +140,7 @@ function ProductDetailPage() {
                                     </p>
                                     {selectedTier && (
                                         <p className="text-xs font-semibold text-zinc-800">
-                                            선택 좌석: {selectedTier.grade} · {selectedTier.price} ({selectedTier.remaining}석 남음)
+                                            선택 좌석: {selectedTier.grade} · {safeTicketQuantity}매 · {formatPrice(estimatedTicketAmount)}
                                         </p>
                                     )}
                                 </div>
@@ -143,10 +157,10 @@ function ProductDetailPage() {
                                 {isTicket ? (
                                     <Button
                                         asChild
-                                        disabled={!selectedTier || selectedTier.remaining <= 0}
+                                        disabled={!selectedTier || selectedTier.remaining <= 0 || safeTicketQuantity <= 0}
                                         className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-600"
                                     >
-                                        <Link to={directCheckoutLink}>선택 좌석으로 구매</Link>
+                                        <Link to={directCheckoutLink}>선택 좌석 {safeTicketQuantity}매 구매</Link>
                                     </Button>
                                 ) : (
                                     <Button asChild className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700">
@@ -196,6 +210,47 @@ function ProductDetailPage() {
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+                                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">예매 수량</p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTicketQuantity(Math.max(1, safeTicketQuantity - 1))}
+                                            disabled={safeTicketQuantity <= 1}
+                                            className="h-8 w-8 rounded-full border border-zinc-300 bg-white text-sm font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            min={maxTicketQuantity > 0 ? 1 : 0}
+                                            max={maxTicketQuantity}
+                                            value={safeTicketQuantity}
+                                            disabled={maxTicketQuantity <= 0}
+                                            onChange={(event) => {
+                                                const nextQuantity = Number(event.target.value);
+                                                if (!Number.isFinite(nextQuantity)) return;
+                                                setTicketQuantity(Math.floor(Math.max(1, nextQuantity)));
+                                            }}
+                                            className="h-8 w-16 rounded-lg border border-zinc-300 bg-white px-2 text-center text-sm text-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setTicketQuantity(Math.min(maxTicketQuantity, safeTicketQuantity + 1))}
+                                            disabled={safeTicketQuantity >= maxTicketQuantity}
+                                            className="h-8 w-8 rounded-full border border-zinc-300 bg-white text-sm font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            +
+                                        </button>
+                                        <p className="ml-1 text-xs text-zinc-500">최대 {maxTicketQuantity}매</p>
+                                    </div>
+                                    {maxTicketQuantity <= 0 && (
+                                        <p className="mt-1 text-xs text-rose-600">선택한 좌석 등급은 매진입니다. 다른 등급을 선택해 주세요.</p>
+                                    )}
+                                    <p className="mt-2 text-sm font-semibold text-zinc-900">
+                                        예상 결제금액: {formatPrice(estimatedTicketAmount)}
+                                    </p>
                                 </div>
                                 <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
                                     <table className="w-full min-w-[500px] text-left text-sm">

@@ -29,15 +29,21 @@ function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     return 0;
 }
 
-function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade) {
+function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, ticketQuantity) {
     const result = findStoreProduct(storeId, productType, productId);
     if (!result) return null;
 
     const { store, product } = result;
     if (productType === "ticket") {
+        const parsedQuantity = Number(ticketQuantity);
+        const requestedQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? Math.floor(parsedQuantity) : 1;
         const selectedTier =
             product.tiers.find((tier) => tier.grade === ticketGrade) ??
             product.tiers[0];
+        const maxQuantity = Math.max(0, selectedTier?.remaining ?? 0);
+        if (maxQuantity <= 0) return null;
+
+        const safeQuantity = Math.min(requestedQuantity, maxQuantity);
         return {
             id: `direct-ticket-${product.id}`,
             kind: "티켓형",
@@ -46,7 +52,7 @@ function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade) {
             name: product.name,
             option: selectedTier ? `${selectedTier.grade} · ${product.eventDate}` : product.eventDate,
             thumbnail: product.thumbnail,
-            quantity: 1,
+            quantity: safeQuantity,
             unitPrice: selectedTier ? parsePriceText(selectedTier.price) : 0,
         };
     }
@@ -72,24 +78,35 @@ function CheckoutPage() {
     const directProductType = searchParams.get("productType") ?? "";
     const directProductId = searchParams.get("productId") ?? "";
     const directTicketGrade = searchParams.get("ticketGrade") ?? "";
+    const directTicketQuantity = searchParams.get("ticketQuantity") ?? "1";
 
     const directItem = useMemo(
         () =>
             directMode
-                ? buildDirectCheckoutItem(directStoreId, directProductType, directProductId, directTicketGrade)
+                ? buildDirectCheckoutItem(
+                    directStoreId,
+                    directProductType,
+                    directProductId,
+                    directTicketGrade,
+                    directTicketQuantity
+                )
                 : null,
-        [directMode, directProductId, directProductType, directStoreId, directTicketGrade]
+        [directMode, directProductId, directProductType, directStoreId, directTicketGrade, directTicketQuantity]
     );
-    const checkoutItems = useMemo(() => (directItem ? [directItem] : cartItems), [directItem]);
+    const checkoutItems = useMemo(() => (directMode ? (directItem ? [directItem] : []) : cartItems), [directMode, directItem]);
     const directBackLink = useMemo(() => {
         if (!directItem) return "/cart";
 
-        const ticketQuery =
-            directProductType === "ticket" && directTicketGrade
-                ? `?ticketGrade=${encodeURIComponent(directTicketGrade)}`
-                : "";
+        const ticketQueryParts = [];
+        if (directProductType === "ticket" && directTicketGrade) {
+            ticketQueryParts.push(`ticketGrade=${encodeURIComponent(directTicketGrade)}`);
+        }
+        if (directProductType === "ticket" && directTicketQuantity) {
+            ticketQueryParts.push(`ticketQuantity=${encodeURIComponent(directTicketQuantity)}`);
+        }
+        const ticketQuery = ticketQueryParts.length > 0 ? `?${ticketQueryParts.join("&")}` : "";
         return `/store/${directItem.storeId}/product/${directProductType}/${directProductId}${ticketQuery}`;
-    }, [directItem, directProductId, directProductType, directTicketGrade]);
+    }, [directItem, directProductId, directProductType, directTicketGrade, directTicketQuantity]);
 
     const [selectedAddressId, setSelectedAddressId] = useState(shippingAddresses[0]?.id ?? "");
     const [selectedCouponId, setSelectedCouponId] = useState("");
@@ -110,8 +127,11 @@ function CheckoutPage() {
 
     const selectedAddress = shippingAddresses.find((address) => address.id === selectedAddressId) ?? shippingAddresses[0];
     const selectedPayment = paymentMethods.find((method) => method.id === selectedPaymentId) ?? paymentMethods[0];
+    const isCheckoutReady = checkoutItems.length > 0;
 
     const submitCheckout = ({ success }) => {
+        if (!isCheckoutReady) return;
+
         const orderId = `DM${Date.now()}`;
         if (success) {
             navigate(`/order/complete?orderId=${orderId}&amount=${finalAmount}`);
@@ -133,7 +153,7 @@ function CheckoutPage() {
                     </p>
                     {directItem && (
                         <p className="mt-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-800 dark:border-cyan-300/30 dark:bg-cyan-400/10 dark:text-cyan-100">
-                            선택 상품: <span className="font-semibold">{directItem.name}</span> 1건만 결제합니다.
+                            선택 상품: <span className="font-semibold">{directItem.name}</span> {directItem.quantity}건을 결제합니다.
                         </p>
                     )}
                 </section>
@@ -218,22 +238,28 @@ function CheckoutPage() {
                         <CardTitle className="text-base text-zinc-900">주문 상품</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {checkoutItems.map((item) => (
-                            <div key={item.id} className="flex gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-                                <img src={item.thumbnail} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.storeName}</p>
-                                    <p className="line-clamp-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.name}</p>
-                                    <p className="line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">{item.option}</p>
+                        {checkoutItems.length > 0 ? (
+                            checkoutItems.map((item) => (
+                                <div key={item.id} className="flex gap-3 rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+                                    <img src={item.thumbnail} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{item.storeName}</p>
+                                        <p className="line-clamp-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.name}</p>
+                                        <p className="line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">{item.option}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-zinc-500 dark:text-zinc-400">x {item.quantity}</p>
+                                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            {formatPrice(item.unitPrice * item.quantity)}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">x {item.quantity}</p>
-                                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                        {formatPrice(item.unitPrice * item.quantity)}
-                                    </p>
-                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+                                직접 구매 정보가 유효하지 않습니다. 상품 상세에서 좌석/수량을 다시 선택해 주세요.
                             </div>
-                        ))}
+                        )}
                     </CardContent>
                 </Card>
 
@@ -327,6 +353,7 @@ function CheckoutPage() {
                         <Button
                             type="button"
                             onClick={() => submitCheckout({ success: true })}
+                            disabled={!isCheckoutReady}
                             className="mt-2 h-10 w-full rounded-full bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-cyan-400/20 dark:text-cyan-100 dark:hover:bg-cyan-400/30"
                         >
                             토스페이먼츠 결제 요청
@@ -335,6 +362,7 @@ function CheckoutPage() {
                             type="button"
                             variant="outline"
                             onClick={() => submitCheckout({ success: false })}
+                            disabled={!isCheckoutReady}
                             className="h-10 w-full rounded-full border-zinc-300 bg-white text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                         >
                             실패 화면 테스트
