@@ -11,9 +11,9 @@ import { useTheme } from "@/common/hooks/useTheme";
 const menus = [
     { name: "홈", to: "/" },
     { name: "펀딩", to: "/funding" },
+    { name: "판매", to: "/sales" },
+    { name: "핫딜", to: "/deals" },
     { name: "스토어", to: "/store" },
-    { name: "세일", to: "/deals" },
-    { name: "셀러센터", to: "/seller" },
 ];
 
 export default function Header({

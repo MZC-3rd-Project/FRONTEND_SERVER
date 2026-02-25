@@ -642,3 +642,22 @@ export const stores = [...baseStores, ...extraStores];
 export function findStoreById(storeId) {
     return stores.find((store) => store.id === storeId);
 }
+
+export function findStoreProduct(storeId, productType, productId) {
+    const store = findStoreById(storeId);
+    if (!store) return null;
+
+    if (productType === "ticket") {
+        const product = store.ticketProducts.find((item) => item.id === productId);
+        if (!product) return null;
+        return { store, product, productType: "ticket" };
+    }
+
+    if (productType === "stock") {
+        const product = store.stockProducts.find((item) => item.id === productId);
+        if (!product) return null;
+        return { store, product, productType: "stock" };
+    }
+
+    return null;
+}

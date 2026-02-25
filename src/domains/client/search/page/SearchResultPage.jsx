@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
 import { hotDeals } from "@/domains/client/deals/mock/dealsData.js";
+import { salesItems } from "@/domains/client/sales/mock/salesData.js";
 import { stores } from "@/domains/client/store/mock/storeData.js";
 
 const scopeLabels = {
     all: "전체",
     funding: "펀딩",
+    sales: "판매",
     store: "스토어/상품",
     deals: "딜",
 };
@@ -52,7 +54,7 @@ const searchResults = [
             thumbnail: product.thumbnail,
             subtitle: `${store.name} · 티켓형`,
             meta: `${product.eventDate} · ${product.venue}`,
-            to: `/store/${store.id}`,
+            to: `/store/${store.id}/product/ticket/${product.id}`,
             badge: "티켓형",
             searchText: `${product.name} ${product.category} ${store.name} ${product.venue}`,
         })),
@@ -65,11 +67,25 @@ const searchResults = [
             thumbnail: product.thumbnail,
             subtitle: `${store.name} · 재고형`,
             meta: `${product.price} · 재고 ${product.stock}개 · ${product.status}`,
-            to: `/store/${store.id}`,
+            to: `/store/${store.id}/product/stock/${product.id}`,
             badge: "재고형",
             searchText: `${product.name} ${product.category} ${store.name} ${product.status}`,
         })),
     ]),
+    ...salesItems.map((item) => ({
+        id: `sales-${item.id}`,
+        scope: "sales",
+        kind: "판매",
+        title: item.title,
+        category: item.category,
+        status: item.status,
+        thumbnail: item.thumbnail,
+        subtitle: `${item.price} · 정가 판매`,
+        meta: `원 프로젝트 ${item.fundingTitle} · 남은 수량 ${item.stockLeft}개`,
+        to: `/sales/${item.id}`,
+        badge: "일반판매",
+        searchText: `${item.title} ${item.category} ${item.fundingTitle} ${item.status}`,
+    })),
     ...hotDeals.map((deal) => ({
         id: `deal-${deal.id}`,
         scope: "deals",

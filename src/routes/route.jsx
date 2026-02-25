@@ -7,9 +7,22 @@ import FundingListPage from "@/domains/client/funding/page/FundingListPage.jsx";
 import FundingDetailPage from "@/domains/client/funding/page/FundingDetailPage.jsx";
 import StorePage from "@/domains/client/store/page/StorePage.jsx";
 import StoreDetailPage from "@/domains/client/store/page/StoreDetailPage.jsx";
+import ProductDetailPage from "@/domains/client/store/page/ProductDetailPage.jsx";
+import SalesPage from "@/domains/client/sales/page/SalesPage.jsx";
+import SalesDetailPage from "@/domains/client/sales/page/SalesDetailPage.jsx";
 import DealsPage from "@/domains/client/deals/page/DealsPage.jsx";
 import SellerCenterPage from "@/domains/client/seller/page/SellerCenterPage.jsx";
 import CartPage from "@/domains/client/cart/page/CartPage.jsx";
+import CheckoutPage from "@/domains/client/checkout/page/CheckoutPage.jsx";
+import WishlistPage from "@/domains/client/wishlist/page/WishlistPage.jsx";
+import OrderCompletePage from "@/domains/client/order/page/OrderCompletePage.jsx";
+import OrderFailPage from "@/domains/client/order/page/OrderFailPage.jsx";
+import OrderListPage from "@/domains/client/order/page/OrderListPage.jsx";
+import OrderDetailPage from "@/domains/client/order/page/OrderDetailPage.jsx";
+import CouponsPage from "@/domains/client/coupon/page/CouponsPage.jsx";
+import AddressesPage from "@/domains/client/address/page/AddressesPage.jsx";
+import FundingSupportPage from "@/domains/client/funding/page/FundingSupportPage.jsx";
+import FundingSupportCompletePage from "@/domains/client/funding/page/FundingSupportCompletePage.jsx";
 import MyPage from "@/domains/client/account/page/MyPage.jsx";
 import NotificationsPage from "@/domains/client/notifications/page/NotificationsPage.jsx";
 import MessagesPage from "@/domains/client/messages/page/MessagesPage.jsx";
@@ -26,12 +39,25 @@ function AppRoutes() {
                 <Route path="/" element={<Home />} />
                 <Route path="/funding" element={<FundingListPage />} />
                 <Route path="/funding/:campaignId" element={<FundingDetailPage />} />
+                <Route path="/funding/:campaignId/support" element={<FundingSupportPage />} />
+                <Route path="/funding/support/complete" element={<FundingSupportCompletePage />} />
+                <Route path="/sales" element={<SalesPage />} />
+                <Route path="/sales/:saleId" element={<SalesDetailPage />} />
                 <Route path="/store" element={<StorePage />} />
                 <Route path="/store/:storeId" element={<StoreDetailPage />} />
+                <Route path="/store/:storeId/product/:productType/:productId" element={<ProductDetailPage />} />
                 <Route path="/deals" element={<DealsPage />} />
                 <Route path="/seller" element={<SellerCenterPage />} />
                 <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/order/complete" element={<OrderCompletePage />} />
+                <Route path="/order/fail" element={<OrderFailPage />} />
                 <Route path="/my" element={<MyPage />} />
+                <Route path="/my/orders" element={<OrderListPage />} />
+                <Route path="/my/orders/:orderId" element={<OrderDetailPage />} />
+                <Route path="/my/coupons" element={<CouponsPage />} />
+                <Route path="/my/addresses" element={<AddressesPage />} />
                 <Route path="/my/notifications" element={<NotificationsPage />} />
                 <Route path="/my/messages" element={<MessagesPage />} />
                 <Route path="/search" element={<SearchResultPage />} />

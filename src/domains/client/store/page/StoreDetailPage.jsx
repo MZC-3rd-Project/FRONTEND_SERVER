@@ -3,6 +3,7 @@ import { Boxes, Calendar, MapPin, Star, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import { findStoreById } from "@/domains/client/store/mock/storeData.js";
 
 function ratingText(rating) {
@@ -31,8 +32,9 @@ function StoreDetailPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-3xl border border-zinc-200/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
+        <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+            <div className="order-2 space-y-6 lg:order-1">
+                <section className="rounded-3xl border border-zinc-200/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Store Detail</p>
@@ -74,9 +76,9 @@ function StoreDetailPage() {
                         </ul>
                     </div>
                 </div>
-            </section>
+                </section>
 
-            <section className="space-y-4">
+                <section className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Ticket className="h-5 w-5 text-cyan-700" />
                     <h3 className="text-xl font-bold text-zinc-900">티켓형 상품</h3>
@@ -85,7 +87,17 @@ function StoreDetailPage() {
                     <Card key={ticket.id} className="overflow-hidden border-zinc-200/80 bg-white/95">
                         <img src={ticket.thumbnail} alt={ticket.name} className="h-44 w-full object-cover" />
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-base text-zinc-900">{ticket.name}</CardTitle>
+                            <div className="flex items-start justify-between gap-2">
+                                <CardTitle className="text-base text-zinc-900">{ticket.name}</CardTitle>
+                                <Button
+                                    asChild
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 rounded-full border-zinc-300 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-100"
+                                >
+                                    <Link to={`/store/${store.id}/product/ticket/${ticket.id}`}>상품 상세</Link>
+                                </Button>
+                            </div>
                             <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
                                 <span className="inline-flex items-center gap-1">
                                     <Calendar className="h-3.5 w-3.5" />
@@ -135,9 +147,9 @@ function StoreDetailPage() {
                         </CardContent>
                     </Card>
                 ))}
-            </section>
+                </section>
 
-            <section className="space-y-4">
+                <section className="space-y-4">
                 <div className="flex items-center gap-2">
                     <Boxes className="h-5 w-5 text-violet-700" />
                     <h3 className="text-xl font-bold text-zinc-900">재고형 상품</h3>
@@ -148,9 +160,19 @@ function StoreDetailPage() {
                         <CardHeader className="pb-2">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <CardTitle className="text-base text-zinc-900">{product.name}</CardTitle>
-                                <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
-                                    {product.status}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+                                        {product.status}
+                                    </span>
+                                    <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 rounded-full border-zinc-300 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-100"
+                                    >
+                                        <Link to={`/store/${store.id}/product/stock/${product.id}`}>상품 상세</Link>
+                                    </Button>
+                                </div>
                             </div>
                             <p className="text-sm text-zinc-500">{product.price} · 재고 {product.stock}개</p>
                         </CardHeader>
@@ -167,9 +189,9 @@ function StoreDetailPage() {
                         </CardContent>
                     </Card>
                 ))}
-            </section>
+                </section>
 
-            <section>
+                <section>
                 <Card className="border-zinc-200/80 bg-white/95">
                     <CardHeader>
                         <CardTitle className="text-base text-zinc-900">가게 리뷰</CardTitle>
@@ -185,7 +207,12 @@ function StoreDetailPage() {
                         ))}
                     </CardContent>
                 </Card>
-            </section>
+                </section>
+            </div>
+
+            <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+                <StickyStoreChat storeName={store.name} />
+            </aside>
         </div>
     );
 }

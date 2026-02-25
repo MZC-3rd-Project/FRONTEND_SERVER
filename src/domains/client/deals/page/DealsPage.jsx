@@ -37,6 +37,7 @@ function DealsPage() {
                             <CardContent>
                                 <div className="flex items-center justify-between">
                                     <div>
+                                        <p className="text-xs text-zinc-400 line-through">{deal.originalPrice}</p>
                                         <p className="text-lg font-bold text-zinc-900">{deal.price}</p>
                                         <p className="mt-1 inline-flex items-center gap-1 text-xs text-zinc-500">
                                             <Timer className="h-3.5 w-3.5" />

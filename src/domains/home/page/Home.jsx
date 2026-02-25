@@ -3,6 +3,7 @@ import { ArrowRight, Box, Flame, Gift, Heart, Layers3, Sparkles, Star, Timer } f
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
 
 const highlights = [
     { label: "오늘 오픈 딜", value: "24", detail: "한정 특가 진행 중" },
@@ -51,32 +52,16 @@ const benefits = [
     },
 ];
 
-const fundingProjects = [
-    {
-        name: "노이즈 캔슬링 우드 스피커",
-        category: "테크",
-        raised: "₩38,200,000",
-        goal: "₩50,000,000",
-        progress: 76,
-        daysLeft: 11,
-    },
-    {
-        name: "친환경 패브릭 백팩 2.0",
-        category: "패션",
-        raised: "₩16,800,000",
-        goal: "₩20,000,000",
-        progress: 84,
-        daysLeft: 6,
-    },
-    {
-        name: "제로슈가 콤부차 스타터 팩",
-        category: "푸드",
-        raised: "₩9,500,000",
-        goal: "₩15,000,000",
-        progress: 63,
-        daysLeft: 19,
-    },
-];
+const fundingProjects = fundingCampaigns.slice(0, 3).map((campaign) => ({
+    id: campaign.id,
+    name: campaign.name,
+    category: campaign.category,
+    raised: campaign.raised,
+    goal: campaign.goal,
+    progress: campaign.progress,
+    daysLeftLabel: campaign.leftLabel,
+    thumbnail: campaign.thumbnail,
+}));
 
 const flashDeals = [
     {
@@ -153,6 +138,60 @@ function Home() {
                     </div>
             </section>
 
+            <section className="space-y-4">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-zinc-500">Funding Pick</p>
+                            <h2 className="text-2xl font-bold text-zinc-900">실시간 펀딩 프로젝트</h2>
+                        </div>
+                        <Button asChild variant="ghost" className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700">
+                            <Link to="/funding">
+                                전체 프로젝트 보기
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {fundingProjects.map((project, index) => (
+                            <Link
+                                key={project.id}
+                                to={`/funding/${project.id}`}
+                                className="reveal-up block"
+                                style={{ animationDelay: `${index * 90}ms` }}
+                            >
+                                <Card className="h-full border-zinc-200/70 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(15,23,42,0.12)]">
+                                    <img src={project.thumbnail} alt={project.name} className="h-40 w-full rounded-t-xl object-cover" />
+                                    <CardHeader className="pb-2">
+                                        <div className="mb-2 flex items-center justify-between text-xs">
+                                            <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                                {project.category}
+                                            </span>
+                                            <span className="font-medium text-zinc-500">{project.daysLeftLabel}</span>
+                                        </div>
+                                        <CardTitle className="text-base leading-snug text-zinc-900">{project.name}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
+                                                style={{ width: `${Math.min(project.progress, 100)}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex items-end justify-between text-sm">
+                                            <div>
+                                                <p className="font-semibold text-zinc-900">{project.raised}</p>
+                                                <p className="text-xs text-zinc-500">목표 {project.goal}</p>
+                                            </div>
+                                            <p className="text-lg font-bold text-blue-600">{project.progress}%</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        ))}
+                    </div>
+            </section>
+
             <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                     <Card className="border-zinc-200/70 bg-white/80 shadow-[0_12px_36px_rgba(15,23,42,0.08)] backdrop-blur">
                         <CardHeader className="pb-2">
@@ -200,56 +239,6 @@ function Home() {
                             })}
                         </CardContent>
                     </Card>
-            </section>
-
-            <section className="space-y-4">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-semibold text-zinc-500">Funding Pick</p>
-                            <h2 className="text-2xl font-bold text-zinc-900">실시간 펀딩 프로젝트</h2>
-                        </div>
-                        <Button asChild variant="ghost" className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700">
-                            <Link to="/funding">
-                                전체 프로젝트 보기
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {fundingProjects.map((project, index) => (
-                            <Card
-                                key={project.name}
-                                className="reveal-up border-zinc-200/70 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
-                                style={{ animationDelay: `${index * 90}ms` }}
-                            >
-                                <CardHeader className="pb-2">
-                                    <div className="mb-2 flex items-center justify-between text-xs">
-                                        <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                                            {project.category}
-                                        </span>
-                                        <span className="font-medium text-zinc-500">{project.daysLeft}일 남음</span>
-                                    </div>
-                                    <CardTitle className="text-base leading-snug text-zinc-900">{project.name}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-                                        <div
-                                            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
-                                            style={{ width: `${project.progress}%` }}
-                                        />
-                                    </div>
-                                    <div className="flex items-end justify-between text-sm">
-                                        <div>
-                                            <p className="font-semibold text-zinc-900">{project.raised}</p>
-                                            <p className="text-xs text-zinc-500">목표 {project.goal}</p>
-                                        </div>
-                                        <p className="text-lg font-bold text-blue-600">{project.progress}%</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
             </section>
 
             <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/70 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-800 p-5 text-white sm:p-7">
