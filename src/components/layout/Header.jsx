@@ -17,9 +17,9 @@ const menus = [
 ];
 
 export default function Header({
-    isLoggedIn = true,
-    hasNotifications = 3,
-    hasMessages = 2,
+    isLoggedIn = false,
+    hasNotifications = 0,
+    hasMessages = 0,
 }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -91,23 +91,24 @@ export default function Header({
                             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                         </Button>
 
-                        <Button
-                            asChild
-                            variant="outline"
-                            className="h-9 rounded-full border-zinc-300 bg-white/80 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                            <Link to="/cart">장바구니</Link>
-                        </Button>
-                        <Button
-                            asChild
-                            variant="ghost"
-                            className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                            <Link to="/my">마이페이지</Link>
-                        </Button>
-
                         {isLoggedIn ? (
-                            <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                            <>
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className="h-9 rounded-full border-zinc-300 bg-white/80 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                >
+                                    <Link to="/cart">장바구니</Link>
+                                </Button>
+                                <Button
+                                    asChild
+                                    variant="ghost"
+                                    className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                >
+                                    <Link to="/my">마이페이지</Link>
+                                </Button>
+                                <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                            </>
                         ) : (
                             <AuthButtons />
                         )}
@@ -156,18 +157,19 @@ export default function Header({
                             >
                                 {isDark ? "라이트 모드" : "다크 모드"}
                             </Button>
-                            <Button
-                                asChild
-                                size="sm"
-                                className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700 dark:bg-cyan-400/20 dark:text-cyan-100 dark:hover:bg-cyan-400/30"
-                            >
-                                <Link to="/cart" onClick={() => setMobileOpen(false)}>
-                                    장바구니
-                                </Link>
-                            </Button>
-
                             {isLoggedIn ? (
-                                <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                                <>
+                                    <Button
+                                        asChild
+                                        size="sm"
+                                        className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700 dark:bg-cyan-400/20 dark:text-cyan-100 dark:hover:bg-cyan-400/30"
+                                    >
+                                        <Link to="/cart" onClick={() => setMobileOpen(false)}>
+                                            장바구니
+                                        </Link>
+                                    </Button>
+                                    <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                                </>
                             ) : (
                                 <AuthButtons />
                             )}

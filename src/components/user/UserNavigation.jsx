@@ -1,14 +1,17 @@
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon } from "lucide-react";
+import { useKeycloak } from "@/common/auth/KeycloakProvider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 
 export function UserNavigation({
-                                   hasNotifications,
-                                   hasMessages,
-                               }) {
+    hasNotifications,
+    hasMessages,
+}) {
+    const { logout } = useKeycloak();
+
     return (
         <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild className="relative">
@@ -66,11 +69,12 @@ export function UserNavigation({
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild className="cursor-pointer">
-                            <Link to="/my/logout">
-                                <LogOutIcon className="size-4 mr-2" />
-                                Logout
-                            </Link>
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={logout}
+                        >
+                            <LogOutIcon className="size-4 mr-2" />
+                            Logout
                         </DropdownMenuItem>
                     </DropdownMenuGroup>
                 </DropdownMenuContent>
