@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap");
 @import "../../node_modules/tailwindcss";
 
 @plugin "tailwindcss-animate";
@@ -41,7 +42,7 @@
   --sidebar-accent-foreground: rgb(30, 157, 241);
   --sidebar-border: rgb(225, 232, 237);
   --sidebar-ring: rgb(29, 161, 242);
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: "Space Grotesk", "IBM Plex Sans KR", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 1.3rem;
@@ -96,7 +97,7 @@
   --sidebar-accent-foreground: rgb(28, 156, 240);
   --sidebar-border: rgb(56, 68, 77);
   --sidebar-ring: rgb(29, 161, 242);
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: "Space Grotesk", "IBM Plex Sans KR", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 1.3rem;
@@ -167,4 +168,117 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #eef5ff 0%, #f8fafc 30%, #ffffff 100%);
+  color: rgb(15, 20, 25);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.25);
+  color: rgb(15, 20, 25);
+}
+
+.surface-hero {
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.92) 0%, rgba(244, 251, 255, 0.82) 42%, rgba(250, 253, 255, 0.9) 100%);
+}
+
+.reveal-up {
+  animation: reveal-up 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:root {
+  --app-bg-start: #eef5ff;
+  --app-bg-mid: #f8fafc;
+  --app-bg-end: #ffffff;
+}
+
+.dark {
+  --app-bg-start: #050a13;
+  --app-bg-mid: #0a1220;
+  --app-bg-end: #0f172a;
+}
+
+.app-shell {
+  background: linear-gradient(180deg, var(--app-bg-start) 0%, var(--app-bg-mid) 28%, var(--app-bg-end) 100%);
+  overflow-x: clip;
+}
+
+.app-shell-glow {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(56, 189, 248, 0.12), transparent 35%),
+    radial-gradient(circle at 92% 18%, rgba(14, 165, 233, 0.1), transparent 34%);
+}
+
+.dark .app-shell-glow {
+  background:
+    radial-gradient(circle at 8% 10%, rgba(34, 211, 238, 0.14), transparent 38%),
+    radial-gradient(circle at 92% 18%, rgba(96, 165, 250, 0.1), transparent 34%);
+}
+
+.dark .surface-hero {
+  background:
+    linear-gradient(140deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.8) 42%, rgba(30, 41, 59, 0.88) 100%);
+}
+
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/80,
+.dark .bg-white\/75,
+.dark .bg-zinc-50,
+.dark .bg-zinc-100 {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+}
+
+.dark .text-zinc-900 {
+  color: rgb(241 245 249) !important;
+}
+
+.dark .text-zinc-700 {
+  color: rgb(203 213 225) !important;
+}
+
+.dark .text-zinc-600,
+.dark .text-zinc-500 {
+  color: rgb(148 163 184) !important;
+}
+
+.dark .border-zinc-200,
+.dark .border-zinc-200\/70,
+.dark .border-zinc-200\/80,
+.dark .border-zinc-300,
+.dark .border-white\/60,
+.dark .border-white\/80 {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+.dark .shadow-\[0_24px_80px_rgba\(31\,38\,66\,0\.16\)\],
+.dark .shadow-\[0_14px_45px_rgba\(15\,23\,42\,0\.08\)\],
+.dark .shadow-\[0_12px_36px_rgba\(15\,23\,42\,0\.08\)\],
+.dark .shadow-\[0_12px_30px_rgba\(15\,23\,42\,0\.08\)\] {
+  box-shadow: 0 18px 56px rgba(2, 8, 23, 0.42) !important;
 }
