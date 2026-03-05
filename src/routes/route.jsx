@@ -32,6 +32,8 @@ import LoginPage from "@/domains/client/auth/page/LoginPage.jsx";
 import JoinPage from "@/domains/client/auth/page/JoinPage.jsx";
 
 import NotFoundPage from "@/domains/common/page/NotFoundPage.jsx";
+import ProfileEditPage from "@/domains/client/profile/page/edit/page/ProfileEditPage.jsx";
+import ProfileLayout from "@/domains/client/profile/page/Layout/ProfileLayout.jsx";
 
 function AppRoutes() {
     return (
@@ -62,6 +64,9 @@ function AppRoutes() {
                 <Route path="/my/addresses" element={<AddressesPage />} />
                 <Route path="/my/notifications" element={<NotificationsPage />} />
                 <Route path="/my/messages" element={<MessagesPage />} />
+                <Route path="/my/profile" element={<ProfileLayout/>}>
+                    <Route path="edit" element={<ProfileEditPage/>} />
+                </Route>
                 <Route path="/search" element={<SearchResultPage />} />
                 <Route path="/auth/login" element={<LoginPage />} />
                 <Route path="/auth/join" element={<JoinPage />} />
