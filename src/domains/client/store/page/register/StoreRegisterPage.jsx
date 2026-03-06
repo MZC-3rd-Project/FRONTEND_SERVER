@@ -1,201 +1,20 @@
-import { useRef, useState } from "react";
 import { Link } from "react-router";
 import {
-    ArrowLeft, Building2, FileText, Image, ImagePlus,
-    Mail, MapPin, Phone, Plus, Trash2, Upload, X,
+    ArrowLeft, FileText, Image, MapPin, Phone
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import {useState} from "react";
+import {ADDRESS_TYPES, IMAGE_TYPES} from "@/domains/client/store/constant/constant.js";
+import FormField from "@/components/store/FormField.jsx";
+import SectionCard from "@/components/store/SectionCard.jsx";
+import AddressSection from "@/components/store/AddressSection.jsx";
+import ContactSection from "@/components/store/ContactSection.jsx";
+import ImageUploadBlock from "@/components/store/ImageUploadBlock.jsx";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const ADDRESS_TYPES = [
-    { value: "MAIN",      label: "본점 주소",   required: true  },
-    { value: "PICKUP",    label: "픽업 주소",   required: false },
-    { value: "RETURN",    label: "반품 주소",   required: false },
-    { value: "WAREHOUSE", label: "창고 주소",   required: false },
-];
 
-const IMAGE_TYPES = [
-    { value: "THUMBNAIL", label: "썸네일",   desc: "가게 목록에 표시되는 대표 이미지",  maxCount: 1  },
-    { value: "BANNER",    label: "배너",     desc: "가게 상단에 표시되는 와이드 이미지", maxCount: 3  },
-    { value: "INTRODUCE", label: "소개 이미지", desc: "가게 소개 섹션 이미지",           maxCount: 5  },
-];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function makeid() {
-    return Math.random().toString(36).slice(2, 9);
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-function SectionCard({ icon: Icon, title, delay = 0, children }) {
-    return (
-        <Card
-            className="reveal-up border-zinc-200/70 bg-white/95 shadow-[0_12px_36px_rgba(15,23,42,0.08)]"
-            style={{ animationDelay: `${delay}ms` }}
-        >
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-bold text-zinc-700">
-                    <Icon className="w-4 h-4 text-cyan-600" />
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">{children}</CardContent>
-        </Card>
-    );
-}
-
-function FormField({ id, label, required, hint, children }) {
-    return (
-        <div className="space-y-1.5">
-            <Label htmlFor={id} className="text-xs font-semibold text-zinc-600">
-                {label}
-                {required && <span className="text-red-500 ml-0.5">*</span>}
-            </Label>
-            {children}
-            {hint && <p className="text-[11px] text-zinc-400">{hint}</p>}
-        </div>
-    );
-}
-
-// ── Image Upload Block ────────────────────────────────────────────────────────
-function ImageUploadBlock({ type, label, desc, maxCount, images, onChange }) {
-    const fileRef = useRef(null);
-
-    const handleFiles = (e) => {
-        const files = Array.from(e.target.files ?? []);
-        const remaining = maxCount - images.length;
-        const toAdd = files.slice(0, remaining).map((file) => ({
-            id: makeid(),
-            file,
-            preview: URL.createObjectURL(file),
-        }));
-        onChange([...images, ...toAdd]);
-        e.target.value = "";
-    };
-
-    const remove = (id) => onChange(images.filter((img) => img.id !== id));
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <div>
-                    <p className="text-xs font-semibold text-zinc-700">{label}</p>
-                    <p className="text-[11px] text-zinc-400">{desc}</p>
-                </div>
-                <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-200">
-                    {images.length} / {maxCount}
-                </Badge>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-                {images.map((img) => (
-                    <div key={img.id} className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-200 group">
-                        <img src={img.preview} alt="" className="w-full h-full object-cover" />
-                        <button
-                            type="button"
-                            onClick={() => remove(img.id)}
-                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                            <X className="w-3 h-3" />
-                        </button>
-                    </div>
-                ))}
-
-                {images.length < maxCount && (
-                    <button
-                        type="button"
-                        onClick={() => fileRef.current?.click()}
-                        className="w-20 h-20 rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 hover:border-zinc-400 flex flex-col items-center justify-center gap-1 transition-colors"
-                    >
-                        <ImagePlus className="w-5 h-5 text-zinc-400" />
-                        <span className="text-[10px] text-zinc-400 font-medium">추가</span>
-                    </button>
-                )}
-            </div>
-
-            <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                multiple={maxCount > 1}
-                className="hidden"
-                onChange={handleFiles}
-            />
-        </div>
-    );
-}
-
-// ── Address Section ───────────────────────────────────────────────────────────
-function AddressSection({ addresses, onChange }) {
-    const update = (type, value) =>
-        onChange({ ...addresses, [type]: value });
-
-    return (
-        <div className="space-y-4">
-            {ADDRESS_TYPES.map(({ value, label, required }) => (
-                <FormField key={value} id={`addr-${value}`} label={label} required={required}>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <Input
-                            id={`addr-${value}`}
-                            type="text"
-                            value={addresses[value] ?? ""}
-                            onChange={(e) => update(value, e.target.value)}
-                            placeholder={`${label}을 입력하세요`}
-                            className="h-11 pl-9 rounded-xl border-zinc-200 bg-zinc-50 font-medium focus:border-zinc-400"
-                        />
-                    </div>
-                </FormField>
-            ))}
-        </div>
-    );
-}
-
-// ── Contact Section ───────────────────────────────────────────────────────────
-function ContactSection({ contacts, onChange }) {
-    const update = (type, value) =>
-        onChange({ ...contacts, [type]: value });
-
-    return (
-        <div className="space-y-4">
-            <FormField id="contact-phone" label="전화번호" required>
-                <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                        id="contact-phone"
-                        type="tel"
-                        value={contacts.PHONE ?? ""}
-                        onChange={(e) => update("PHONE", e.target.value)}
-                        placeholder="02-0000-0000"
-                        maxLength={20}
-                        className="h-11 pl-9 rounded-xl border-zinc-200 bg-zinc-50 font-medium focus:border-zinc-400"
-                    />
-                </div>
-            </FormField>
-
-            <FormField id="contact-email" label="이메일">
-                <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                        id="contact-email"
-                        type="email"
-                        value={contacts.EMAIL ?? ""}
-                        onChange={(e) => update("EMAIL", e.target.value)}
-                        placeholder="store@example.com"
-                        className="h-11 pl-9 rounded-xl border-zinc-200 bg-zinc-50 font-medium focus:border-zinc-400"
-                    />
-                </div>
-            </FormField>
-        </div>
-    );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 function StoreRegisterPage() {
     // stores
     const [storeName, setStoreName] = useState("");
@@ -282,7 +101,7 @@ function StoreRegisterPage() {
                 </div>
             </div>
 
-            {/* ── Hero Banner ─────────────────────────────────────────── */}
+
             <section
                 className="reveal-up relative overflow-hidden rounded-[2rem] border border-white/60 bg-gradient-to-br from-white/90 via-zinc-50/80 to-white/70 px-8 py-7 shadow-[0_24px_80px_rgba(31,38,66,0.16)] backdrop-blur"
                 style={{ animationDelay: "40ms" }}
