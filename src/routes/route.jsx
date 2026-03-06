@@ -34,6 +34,8 @@ import JoinPage from "@/domains/client/auth/page/JoinPage.jsx";
 import NotFoundPage from "@/domains/common/page/NotFoundPage.jsx";
 import ProfileEditPage from "@/domains/client/profile/page/edit/page/ProfileEditPage.jsx";
 import ProfileLayout from "@/domains/client/profile/page/Layout/ProfileLayout.jsx";
+import StoreRegisterPage from "@/domains/client/store/page/register/StoreRegisterPage.jsx";
+import StoreLayout from "@/domains/client/store/page/layout/StoreLayout.jsx";
 
 function AppRoutes() {
     return (
@@ -46,9 +48,12 @@ function AppRoutes() {
                 <Route path="/funding/support/complete" element={<FundingSupportCompletePage />} />
                 <Route path="/sales" element={<SalesPage />} />
                 <Route path="/sales/:saleId" element={<SalesDetailPage />} />
-                <Route path="/store" element={<StorePage />} />
-                <Route path="/store/:storeId" element={<StoreDetailPage />} />
-                <Route path="/store/:storeId/product/:productType/:productId" element={<ProductDetailPage />} />
+                <Route path="/store" element={<StoreLayout />} >
+                    <Route index element={<StorePage />} />
+                    <Route path="register" element={<StoreRegisterPage />}/>
+                    <Route path=":storeId" element={<StoreDetailPage />} />
+                    <Route path=":storeId/product/:productType/:productId" element={<ProductDetailPage />} />
+                </Route>
                 <Route path="/deals" element={<DealsPage />} />
                 <Route path="/deals/:dealId" element={<DealDetailPage />} />
                 <Route path="/seller" element={<SellerCenterPage />} />
