@@ -1,9 +1,7 @@
 import {useRef} from "react";
 import {Badge} from "@/components/ui/badge.js";
 import {ImagePlus, X} from "lucide-react";
-import {Button} from "@/components/ui/button.js";
 import {makeid} from "@/domains/client/store/constant/constant.js";
-import {Input} from "@/components/ui/input.js";
 
 export default function ImageUploadBlock({ label, desc, maxCount, images, onChange }) {
     const fileRef = useRef(null);
