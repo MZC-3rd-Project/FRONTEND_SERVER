@@ -69,8 +69,8 @@ export default function Header({
                                     className={cn(
                                         "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                                         active
-                                            ? "bg-zinc-900 text-white dark:bg-cyan-400/20 dark:text-cyan-100"
-                                            : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                            ? "bg-primary text-primary-foreground"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                     )}
                                 >
                                     {menu.name}
@@ -78,7 +78,6 @@ export default function Header({
                             );
                         })}
                     </nav>
-
                     <div className="hidden items-center gap-2 lg:flex">
                         <Button
                             type="button"
@@ -88,7 +87,7 @@ export default function Header({
                             onClick={toggleTheme}
                             aria-label={isDark ? "라이트 모드 전환" : "다크 모드 전환"}
                         >
-                            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                            {isDark ? <Sun className="h-4 w-4"/> : <Moon className="h-4 w-4"/>}
                         </Button>
 
                         <Button
