@@ -3,6 +3,7 @@ import { ArrowRight, Box, Flame, Gift, Heart, Layers3, Sparkles, Star, Timer } f
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
 
 const highlights = [
@@ -84,207 +85,237 @@ const flashDeals = [
     },
 ];
 
-function Home() {
+// 펀딩 진행률을 구간별 Tailwind 클래스로 변환
+function getFundingProgressClass(progress) {
+    const clamped = Math.min(progress, 100);
+    if (clamped >= 100) return "w-full";
+    if (clamped >= 90) return "w-11/12";
+    if (clamped >= 75) return "w-3/4";
+    if (clamped >= 50) return "w-1/2";
+    if (clamped >= 25) return "w-1/4";
+    return "w-1/6";
+}
+
+// 카드 애니메이션 딜레이를 index별 Tailwind 클래스로 변환
+function getDelayClass(index) {
+    const delays = ["delay-0", "delay-75", "delay-150", "delay-200", "delay-300"];
+    return delays[index] ?? "delay-0";
+}
+
+export default function Home() {
     return (
         <div className="space-y-10 pb-8 md:space-y-14 md:pb-12">
-            <section className="surface-hero relative overflow-hidden rounded-[2rem] border border-white/60 p-6 shadow-[0_24px_80px_rgba(31,38,66,0.16)] sm:p-10">
-                    <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-gradient-to-br from-cyan-300/45 to-indigo-400/15 blur-3xl" />
-                    <div className="pointer-events-none absolute -bottom-20 -left-16 h-64 w-64 rounded-full bg-gradient-to-tr from-orange-300/45 to-pink-300/10 blur-3xl" />
+            {/* ── Hero ── */}
+            <section className="surface-hero relative overflow-hidden rounded-[2rem] border border-border p-6 shadow-[0_24px_80px_rgba(31,38,66,0.16)] sm:p-10">
+                <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-gradient-to-br from-cyan-300/45 to-indigo-400/15 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 -left-16 h-64 w-64 rounded-full bg-gradient-to-tr from-orange-300/45 to-pink-300/10 blur-3xl" />
 
-                    <div className="relative z-10 max-w-4xl space-y-6">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200/70 bg-white/75 px-3 py-1 text-xs font-medium tracking-wide text-zinc-700">
-                            <Sparkles className="h-3.5 w-3.5 text-cyan-600" />
-                            Don-Moa | 돈모아
-                        </div>
-
-                        <h1 className="text-3xl font-black leading-tight text-zinc-900 sm:text-4xl md:text-5xl">
-                            좋아할 만한 상품과 펀딩을
-                            <br />
-                            한 번에 발견하는 쇼핑 홈
-                        </h1>
-
-                        <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 sm:text-base">
-                            오늘의 인기 상품, 타임세일, 새로 시작한 펀딩 프로젝트까지 클라이언트 관점에서 가장 필요한 정보만 먼저 보여줍니다.
-                        </p>
-
-                        <div className="flex flex-wrap items-center gap-3 pt-1">
-                            <Button asChild className="h-10 rounded-full bg-zinc-950 px-6 text-sm font-semibold text-white hover:bg-zinc-800">
-                                <Link to="/store">
-                                    지금 쇼핑하기
-                                    <ArrowRight className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                            <Button
-                                asChild
-                                variant="outline"
-                                className="h-10 rounded-full border-zinc-300 bg-white/80 px-6 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
-                            >
-                                <Link to="/funding">펀딩 둘러보기</Link>
-                            </Button>
-                        </div>
+                <div className="relative z-10 max-w-4xl space-y-6">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-popover/75 px-3 py-1 text-xs font-medium tracking-wide text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        Don-Moa | 돈모아
                     </div>
 
-                    <div className="relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
-                        {highlights.map((metric) => (
-                            <div
-                                key={metric.label}
-                                className="reveal-up rounded-2xl border border-white/80 bg-white/75 p-4 backdrop-blur"
-                            >
-                                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{metric.label}</p>
-                                <p className="mt-2 text-2xl font-bold text-zinc-900">{metric.value}</p>
-                                <p className="text-xs text-zinc-500">{metric.detail}</p>
-                            </div>
-                        ))}
-                    </div>
-            </section>
+                    <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl md:text-5xl">
+                        좋아할 만한 상품과 펀딩을
+                        <br />
+                        한 번에 발견하는 쇼핑 홈
+                    </h1>
 
-            <section className="space-y-4">
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-semibold text-zinc-500">Funding Pick</p>
-                            <h2 className="text-2xl font-bold text-zinc-900">실시간 펀딩 프로젝트</h2>
-                        </div>
-                        <Button asChild variant="ghost" className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700">
-                            <Link to="/funding">
-                                전체 프로젝트 보기
+                    <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                        오늘의 인기 상품, 타임세일, 새로 시작한 펀딩 프로젝트까지 클라이언트 관점에서 가장 필요한 정보만 먼저 보여줍니다.
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <Button asChild className="h-10 rounded-full px-6 text-sm font-semibold">
+                            <Link to="/store">
+                                지금 쇼핑하기
                                 <ArrowRight className="h-4 w-4" />
                             </Link>
                         </Button>
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="h-10 rounded-full px-6 text-sm font-semibold"
+                        >
+                            <Link to="/funding">펀딩 둘러보기</Link>
+                        </Button>
                     </div>
+                </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {fundingProjects.map((project, index) => (
-                            <Link
-                                key={project.id}
-                                to={`/funding/${project.id}`}
-                                className="reveal-up block"
-                                style={{ animationDelay: `${index * 90}ms` }}
-                            >
-                                <Card className="h-full border-zinc-200/70 bg-white/90 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(15,23,42,0.12)]">
-                                    <img src={project.thumbnail} alt={project.name} className="h-40 w-full rounded-t-xl object-cover" />
-                                    <CardHeader className="pb-2">
-                                        <div className="mb-2 flex items-center justify-between text-xs">
-                                            <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                                                {project.category}
-                                            </span>
-                                            <span className="font-medium text-zinc-500">{project.daysLeftLabel}</span>
+                <div className="relative z-10 mt-8 grid gap-3 sm:grid-cols-3">
+                    {highlights.map((metric) => (
+                        <div
+                            key={metric.label}
+                            className="reveal-up rounded-2xl border border-border bg-popover/75 p-4 backdrop-blur"
+                        >
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                            <p className="mt-2 text-2xl font-bold text-foreground">{metric.value}</p>
+                            <p className="text-xs text-muted-foreground">{metric.detail}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* ── 실시간 펀딩 프로젝트 ── */}
+            <section className="space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <p className="text-sm font-semibold text-muted-foreground">Funding Pick</p>
+                        <h2 className="text-2xl font-bold text-foreground">실시간 펀딩 프로젝트</h2>
+                    </div>
+                    <Button asChild variant="ghost" className="h-9 rounded-full px-4 text-sm font-semibold">
+                        <Link to="/funding">
+                            전체 프로젝트 보기
+                            <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {fundingProjects.map((project, index) => (
+                        <Link
+                            key={project.id}
+                            to={`/funding/${project.id}`}
+                            className={cn("reveal-up block animate-in fade-in", getDelayClass(index))}
+                        >
+                            <Card className="h-full border-border bg-card shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(15,23,42,0.12)]">
+                                <img src={project.thumbnail} alt={project.name} className="h-40 w-full rounded-t-xl object-cover" />
+                                <CardHeader className="pb-2">
+                                    <div className="mb-2 flex items-center justify-between text-xs">
+                                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+                                            {project.category}
+                                        </span>
+                                        <span className="font-medium text-muted-foreground">{project.daysLeftLabel}</span>
+                                    </div>
+                                    <CardTitle className="text-base leading-snug text-card-foreground">{project.name}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className={cn(
+                                                "h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500",
+                                                getFundingProgressClass(project.progress)
+                                            )}
+                                        />
+                                    </div>
+                                    <div className="flex items-end justify-between text-sm">
+                                        <div>
+                                            <p className="font-semibold text-card-foreground">{project.raised}</p>
+                                            <p className="text-xs text-muted-foreground">목표 {project.goal}</p>
                                         </div>
-                                        <CardTitle className="text-base leading-snug text-zinc-900">{project.name}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-                                            <div
-                                                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
-                                                style={{ width: `${Math.min(project.progress, 100)}%` }}
-                                            />
-                                        </div>
-                                        <div className="flex items-end justify-between text-sm">
-                                            <div>
-                                                <p className="font-semibold text-zinc-900">{project.raised}</p>
-                                                <p className="text-xs text-zinc-500">목표 {project.goal}</p>
-                                            </div>
-                                            <p className="text-lg font-bold text-blue-600">{project.progress}%</p>
-                                        </div>
+                                        <p className="text-lg font-bold text-primary">{project.progress}%</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    ))}
+                </div>
+            </section>
+
+            {/* ── 카테고리 + 혜택 ── */}
+            <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+
+                {/* 카테고리 탐색 */}
+                <Card className="border-border bg-card shadow-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
+                            <Layers3 className="h-5 w-5 text-primary" />
+                            카테고리 탐색
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 sm:grid-cols-2">
+                        {categoryBlocks.map((block) => (
+                            <Link key={block.title} to="/store" className="group block">
+                                <Card className="relative overflow-hidden border-border bg-background transition-transform hover:-translate-y-0.5">
+                                    <div className={cn("absolute inset-0 bg-gradient-to-br", block.tone)} />
+                                    <CardContent className="relative z-10 space-y-1.5 p-4">
+                                        <p className="text-sm font-semibold text-foreground">{block.title}</p>
+                                        <p className="text-xs leading-relaxed text-muted-foreground">{block.description}</p>
                                     </CardContent>
                                 </Card>
                             </Link>
                         ))}
-                    </div>
-            </section>
+                    </CardContent>
+                </Card>
 
-            <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                    <Card className="border-zinc-200/70 bg-white/80 shadow-[0_12px_36px_rgba(15,23,42,0.08)] backdrop-blur">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-lg text-zinc-900">
-                                <Layers3 className="h-5 w-5 text-violet-600" />
-                                카테고리 탐색
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid gap-3 sm:grid-cols-2">
-                            {categoryBlocks.map((block) => (
-                                <Link
-                                    key={block.title}
-                                    to="/store"
-                                    className="relative overflow-hidden rounded-xl border border-zinc-200/70 bg-white p-4 transition-transform hover:-translate-y-0.5"
-                                >
-                                    <div className={`absolute inset-0 bg-gradient-to-br ${block.tone}`} />
-                                    <div className="relative z-10 space-y-2">
-                                        <p className="text-sm font-semibold text-zinc-900">{block.title}</p>
-                                        <p className="text-xs leading-relaxed text-zinc-600">{block.description}</p>
-                                    </div>
-                                </Link>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-zinc-200/70 bg-zinc-950 text-white shadow-[0_12px_36px_rgba(15,23,42,0.2)]">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Gift className="h-5 w-5 text-cyan-300" />
-                                오늘의 혜택
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
-                            {benefits.map((benefit) => {
-                                const Icon = benefit.icon;
-                                return (
-                                    <div key={benefit.title} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                        <p className="flex items-center gap-2 font-medium text-zinc-100">
-                                            <Icon className="h-4 w-4 text-cyan-300" />
+                {/* 오늘의 혜택 */}
+                <Card className="border-border bg-card shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
+                            <Gift className="h-5 w-5 text-primary" />
+                            오늘의 혜택
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {benefits.map((benefit) => {
+                            const Icon = benefit.icon;
+                            return (
+                                <Card key={benefit.title} className="border-border bg-background shadow-none">
+                                    <CardContent className="p-3">
+                                        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                            <Icon className="h-4 w-4 shrink-0 text-primary" />
                                             {benefit.title}
                                         </p>
-                                        <p className="mt-1 text-zinc-300">{benefit.detail}</p>
-                                    </div>
-                                );
-                            })}
-                        </CardContent>
-                    </Card>
+                                        <p className="mt-1 text-xs text-muted-foreground">{benefit.detail}</p>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </CardContent>
+                </Card>
+
             </section>
 
-            <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/70 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-800 p-5 text-white sm:p-7">
-                    <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.22),transparent_55%)]" />
-                    <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-                        <div className="max-w-xl">
-                            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                                <Flame className="h-3.5 w-3.5" />
-                                Flash Deal Zone
-                            </p>
-                            <h3 className="mt-2 text-2xl font-bold">오늘의 특가 타임세일</h3>
-                            <p className="mt-1 text-sm text-zinc-300">
-                                인기 상품을 제한 시간 동안 더 좋은 가격으로 만나보세요.
-                            </p>
-                        </div>
-                        <Button asChild className="h-10 rounded-full bg-white px-5 text-sm font-semibold text-zinc-900 hover:bg-zinc-200">
-                            <Link to="/deals">딜 보러가기</Link>
-                        </Button>
-                    </div>
+            {/* ── Flash Deal ── */}
+            <section className="relative overflow-hidden rounded-[1.75rem] border border-primary/20 bg-gradient-to-br from-accent via-background to-accent/50 p-5 sm:p-7">
+                {/* 배경 글로우 */}
+                <div className="pointer-events-none absolute -top-16 -right-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-10 -left-5 h-48 w-48 rounded-full bg-primary/8 blur-2xl" />
 
-                    <div className="relative z-10 mt-5 grid gap-3 md:grid-cols-3">
-                        {flashDeals.map((deal) => (
-                            <div key={deal.title} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-                                <div className="flex items-center justify-between text-xs text-zinc-300">
-                                    <span className="inline-flex items-center gap-1">
-                                        <Box className="h-3.5 w-3.5" />
-                                        추천 상품
-                                    </span>
-                                    <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px]">
-                                        {deal.discount}
-                                    </span>
-                                </div>
-                                <p className="mt-2 text-sm font-semibold text-white">{deal.title}</p>
-                                <div className="mt-3 flex items-end justify-between">
-                                    <p className="text-lg font-bold">{deal.price}</p>
-                                    <p className="inline-flex items-center gap-1 text-xs text-cyan-300">
-                                        <Timer className="h-3.5 w-3.5" />
-                                        {deal.eta}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+                    <div className="max-w-xl">
+                        <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+                            <Flame className="h-3.5 w-3.5" />
+                            Flash Deal Zone
+                        </p>
+                        <h3 className="mt-2 text-2xl font-bold text-foreground">오늘의 특가 타임세일</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            인기 상품을 제한 시간 동안 더 좋은 가격으로 만나보세요.
+                        </p>
                     </div>
+                    <Button asChild className="h-10 rounded-full px-5 text-sm font-semibold">
+                        <Link to="/deals">딜 보러가기</Link>
+                    </Button>
+                </div>
+
+                <div className="relative z-10 mt-5 grid gap-3 md:grid-cols-3">
+                    {flashDeals.map((deal) => (
+                        <div
+                            key={deal.title}
+                            className="rounded-2xl border border-primary/15 bg-background/70 p-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                        >
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                        <Box className="h-3.5 w-3.5" />
+                        추천 상품
+                    </span>
+                                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                        {deal.discount}
+                    </span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-foreground">{deal.title}</p>
+                            <div className="mt-3 flex items-end justify-between">
+                                <p className="text-lg font-bold text-foreground">{deal.price}</p>
+                                <p className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                    <Timer className="h-3.5 w-3.5" />
+                                    {deal.eta}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </section>
         </div>
     );
 }
-
-export default Home;

@@ -17,10 +17,10 @@ const menus = [
 ];
 
 export default function Header({
-    isLoggedIn = true,
-    hasNotifications = 3,
-    hasMessages = 2,
-}) {
+                                   isLoggedIn = true,
+                                   hasNotifications = 3,
+                                   hasMessages = 2,
+                               }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const { isDark, toggleTheme } = useTheme();
@@ -30,7 +30,6 @@ export default function Header({
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 16);
         handleScroll();
-
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
@@ -47,30 +46,37 @@ export default function Header({
                     "mx-auto max-w-[1200px] rounded-2xl border px-4 sm:px-6",
                     "backdrop-blur-xl transition-all duration-300",
                     isScrolled
-                        ? "border-zinc-200/70 bg-white/75 shadow-[0_10px_30px_rgba(15,23,42,0.1)] dark:border-zinc-700/70 dark:bg-zinc-950/80 dark:shadow-[0_10px_30px_rgba(2,8,23,0.45)]"
-                        : "border-white/60 bg-white/60 shadow-[0_10px_40px_rgba(56,189,248,0.15)] dark:border-zinc-800/70 dark:bg-zinc-950/65 dark:shadow-[0_10px_40px_rgba(2,8,23,0.5)]"
+                        ? "border-border/70 bg-background/75 shadow-md"
+                        : "border-border/50 bg-background/60 shadow-sm"
                 )}
             >
+                {/* ── 메인 행 ── */}
                 <div className="flex h-16 items-center justify-between gap-3">
-                    <Link to="/" className="inline-flex items-center gap-2.5 font-black tracking-tight text-zinc-900 dark:text-white">
-                        <span className="grid h-8 w-8 place-items-center rounded-full bg-zinc-900 text-white dark:border dark:border-cyan-300/40 dark:bg-cyan-300/20 dark:text-cyan-100">
+
+                    {/* 로고 */}
+                    <Link
+                        to="/"
+                        className="inline-flex items-center gap-2.5 font-black tracking-tight text-foreground"
+                    >
+                        <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
                             <Sparkles className="h-4 w-4" />
                         </span>
                         <span className="text-base sm:text-lg">Don-Moa | 돈모아</span>
                     </Link>
 
+                    {/* 데스크탑 내비게이션 */}
                     <nav className="hidden items-center gap-1 lg:flex">
                         {menus.map((menu) => {
-                            const active = isActiveMenu(menu.to);
+                            const isActive = isActiveMenu(menu.to);
                             return (
                                 <Link
                                     key={menu.name}
                                     to={menu.to}
                                     className={cn(
                                         "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                                        active
-                                            ? "bg-zinc-900 text-white dark:bg-cyan-400/20 dark:text-cyan-100"
-                                            : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                        isActive
+                                            ? "bg-primary text-primary-foreground"
+                                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                                     )}
                                 >
                                     {menu.name}
@@ -79,12 +85,13 @@ export default function Header({
                         })}
                     </nav>
 
+                    {/* 데스크탑 액션 영역 */}
                     <div className="hidden items-center gap-2 lg:flex">
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            className="rounded-full"
                             onClick={toggleTheme}
                             aria-label={isDark ? "라이트 모드 전환" : "다크 모드 전환"}
                         >
@@ -94,28 +101,33 @@ export default function Header({
                         <Button
                             asChild
                             variant="outline"
-                            className="h-9 rounded-full border-zinc-300 bg-white/80 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            className="h-9 rounded-full px-4 text-sm font-semibold"
                         >
                             <Link to="/cart">장바구니</Link>
                         </Button>
+
                         <Button
                             asChild
                             variant="ghost"
-                            className="h-9 rounded-full px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            className="h-9 rounded-full px-4 text-sm font-semibold"
                         >
                             <Link to="/my">마이페이지</Link>
                         </Button>
 
                         {isLoggedIn ? (
-                            <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                            <UserNavigation
+                                hasNotifications={hasNotifications}
+                                hasMessages={hasMessages}
+                            />
                         ) : (
                             <AuthButtons />
                         )}
                     </div>
 
+                    {/* 모바일 햄버거 */}
                     <button
                         type="button"
-                        className="grid h-9 w-9 place-items-center rounded-full border border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 lg:hidden"
+                        className="grid h-9 w-9 place-items-center rounded-full border border-border bg-background text-foreground lg:hidden"
                         aria-label="모바일 메뉴"
                         onClick={() => setMobileOpen((prev) => !prev)}
                     >
@@ -123,23 +135,24 @@ export default function Header({
                     </button>
                 </div>
 
+                {/* ── 모바일 드로어 ── */}
                 <div
                     className={cn(
                         "overflow-hidden transition-[max-height,opacity,padding] duration-300 lg:hidden",
                         mobileOpen ? "max-h-[340px] pb-4 opacity-100" : "max-h-0 pb-0 opacity-0"
                     )}
                 >
-                    <div className="space-y-2 border-t border-zinc-200/70 pt-3 dark:border-zinc-700/70">
+                    <div className="space-y-2 border-t border-border/70 pt-3">
                         {menus.map((menu) => (
                             <Link
                                 key={menu.name}
                                 to={menu.to}
                                 onClick={() => setMobileOpen(false)}
                                 className={cn(
-                                    "block rounded-xl px-3 py-2 text-sm font-semibold",
+                                    "block rounded-xl px-3 py-2 text-sm font-semibold transition-colors",
                                     isActiveMenu(menu.to)
-                                        ? "bg-zinc-900 text-white dark:bg-cyan-400/20 dark:text-cyan-100"
-                                        : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+                                        ? "bg-primary text-primary-foreground"
+                                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                                 )}
                             >
                                 {menu.name}
@@ -151,15 +164,16 @@ export default function Header({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="rounded-full border-zinc-300 bg-white px-4 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                className="rounded-full px-4"
                                 onClick={toggleTheme}
                             >
                                 {isDark ? "라이트 모드" : "다크 모드"}
                             </Button>
+
                             <Button
                                 asChild
                                 size="sm"
-                                className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700 dark:bg-cyan-400/20 dark:text-cyan-100 dark:hover:bg-cyan-400/30"
+                                className="rounded-full px-4"
                             >
                                 <Link to="/cart" onClick={() => setMobileOpen(false)}>
                                     장바구니
@@ -167,7 +181,10 @@ export default function Header({
                             </Button>
 
                             {isLoggedIn ? (
-                                <UserNavigation hasNotifications={hasNotifications} hasMessages={hasMessages} />
+                                <UserNavigation
+                                    hasNotifications={hasNotifications}
+                                    hasMessages={hasMessages}
+                                />
                             ) : (
                                 <AuthButtons />
                             )}
