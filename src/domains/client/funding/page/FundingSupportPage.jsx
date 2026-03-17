@@ -26,12 +26,12 @@ function FundingSupportPage() {
     if (!campaign) {
         return (
             <div className="grid min-h-[60vh] place-items-center">
-                <Card className="w-full max-w-md border-zinc-200/80 bg-white/95">
+                <Card className="w-full max-w-md">
                     <CardHeader>
-                        <CardTitle className="text-zinc-900">펀딩 프로젝트를 찾을 수 없습니다</CardTitle>
+                        <CardTitle>펀딩 프로젝트를 찾을 수 없습니다</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Button asChild className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700">
+                        <Button asChild className="rounded-full px-5">
                             <Link to="/funding">펀딩 목록으로 이동</Link>
                         </Button>
                     </CardContent>
@@ -48,17 +48,17 @@ function FundingSupportPage() {
     return (
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="space-y-5">
-                <section className="rounded-3xl border border-zinc-200/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Funding Support</p>
-                    <h2 className="mt-2 text-3xl font-black tracking-tight text-zinc-900">후원하기</h2>
-                    <p className="mt-2 text-sm text-zinc-600">
-                        <span className="font-semibold text-zinc-900">{campaign.name}</span> 프로젝트를 후원하고 리워드를 선택하세요.
+                <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">Funding Support</p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">후원하기</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground">{campaign.name}</span> 프로젝트를 후원하고 리워드를 선택하세요.
                     </p>
                 </section>
 
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base text-zinc-900">리워드 선택</CardTitle>
+                        <CardTitle className="text-base">리워드 선택</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         {campaign.rewardOptions.map((reward) => (
@@ -68,8 +68,8 @@ function FundingSupportPage() {
                                 onClick={() => setSelectedRewardId(reward.id)}
                                 className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                                     selectedRewardId === reward.id
-                                        ? "border-zinc-900 bg-zinc-900 text-white dark:border-cyan-300/40 dark:bg-cyan-400/20 dark:text-cyan-100"
-                                        : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-cyan-300/40"
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-border bg-card text-foreground hover:border-primary hover:bg-accent/40"
                                 }`}
                             >
                                 <p className="text-sm font-semibold">{reward.title}</p>
@@ -80,25 +80,25 @@ function FundingSupportPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-base text-zinc-900">후원자 정보</CardTitle>
+                        <CardTitle className="text-base">후원자 정보</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">이름</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">이름</p>
                             <Input
                                 value={supporterName}
                                 onChange={(event) => setSupporterName(event.target.value)}
-                                className="h-10 border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                                className="h-10"
                             />
                         </div>
                         <div className="space-y-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">이메일</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">이메일</p>
                             <Input
                                 value={supporterEmail}
                                 onChange={(event) => setSupporterEmail(event.target.value)}
-                                className="h-10 border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                                className="h-10"
                             />
                         </div>
                     </CardContent>
@@ -106,10 +106,10 @@ function FundingSupportPage() {
             </div>
 
             <div className="space-y-5 md:sticky md:top-24 md:self-start">
-                <Card className="border-zinc-200/80 bg-white/95 shadow-[0_14px_45px_rgba(15,23,42,0.08)]">
+                <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
-                            <CreditCard className="h-4 w-4 text-cyan-700" />
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <CreditCard className="h-4 w-4 text-primary" />
                             결제 수단 (토스페이먼츠)
                         </CardTitle>
                     </CardHeader>
@@ -121,8 +121,8 @@ function FundingSupportPage() {
                                 onClick={() => setSelectedPaymentId(method.id)}
                                 className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                                     selectedPaymentId === method.id
-                                        ? "border-zinc-900 bg-zinc-900 text-white dark:border-cyan-300/40 dark:bg-cyan-400/20 dark:text-cyan-100"
-                                        : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-cyan-300/40"
+                                        ? "border-primary bg-primary text-primary-foreground"
+                                        : "border-border bg-card text-foreground hover:border-primary hover:bg-accent/40"
                                 }`}
                             >
                                 <p className="text-sm font-semibold">{method.name}</p>
@@ -132,27 +132,27 @@ function FundingSupportPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base text-zinc-900">후원 요약</CardTitle>
+                        <CardTitle className="text-base">후원 요약</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between text-zinc-600">
+                        <div className="flex items-center justify-between text-muted-foreground">
                             <span>프로젝트</span>
-                            <span className="font-semibold text-zinc-900">{campaign.name}</span>
+                            <span className="font-semibold text-foreground">{campaign.name}</span>
                         </div>
-                        <div className="flex items-center justify-between text-zinc-600">
+                        <div className="flex items-center justify-between text-muted-foreground">
                             <span>선택 리워드</span>
-                            <span className="font-semibold text-zinc-900">{selectedReward?.title}</span>
+                            <span className="font-semibold text-foreground">{selectedReward?.title}</span>
                         </div>
-                        <div className="flex items-center justify-between text-zinc-600">
+                        <div className="flex items-center justify-between text-muted-foreground">
                             <span>결제 수단</span>
-                            <span className="font-semibold text-zinc-900">
+                            <span className="font-semibold text-foreground">
                                 {paymentMethods.find((method) => method.id === selectedPaymentId)?.name}
                             </span>
                         </div>
-                        <div className="my-2 h-px bg-zinc-200 dark:bg-zinc-700" />
-                        <div className="flex items-center justify-between text-base font-bold text-zinc-900">
+                        <div className="my-2 h-px bg-border" />
+                        <div className="flex items-center justify-between text-base font-bold text-foreground">
                             <span>총 후원 금액</span>
                             <span>{selectedReward?.price ?? "-"}</span>
                         </div>
@@ -160,12 +160,12 @@ function FundingSupportPage() {
                         <Button
                             type="button"
                             onClick={submitSupport}
-                            className="mt-2 h-10 w-full rounded-full bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-700 dark:bg-cyan-400/20 dark:text-cyan-100 dark:hover:bg-cyan-400/30"
+                            className="mt-2 h-10 w-full rounded-full text-sm font-semibold"
                         >
                             <HeartHandshake className="h-4 w-4" />
                             후원 결제 진행
                         </Button>
-                        <Button asChild variant="ghost" className="h-9 w-full rounded-full text-zinc-700 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800">
+                        <Button asChild variant="ghost" className="h-9 w-full rounded-full">
                             <Link to={`/funding/${campaign.id}`}>상세로 돌아가기</Link>
                         </Button>
                     </CardContent>

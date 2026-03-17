@@ -125,36 +125,36 @@ function SearchResultPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-3xl border border-zinc-200/80 bg-white/95 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Search Result</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-zinc-900">검색 결과</h2>
+            <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Search Result</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">검색 결과</h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-zinc-700">범위: {scopeLabels[scope] ?? scope}</span>
-                    <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-zinc-700">카테고리: {category}</span>
+                    <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">범위: {scopeLabels[scope] ?? scope}</span>
+                    <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">카테고리: {category}</span>
                     {status !== "전체" && (
-                        <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-zinc-700">상태: {status}</span>
+                        <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">상태: {status}</span>
                     )}
                     {kind !== "전체" && (
-                        <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-zinc-700">상품 타입: {kind}</span>
+                        <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">상품 타입: {kind}</span>
                     )}
                     {keyword && (
-                        <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-zinc-700">
+                        <span className="rounded-full border border-border bg-muted px-2 py-1 text-muted-foreground">
                             키워드: {keyword}
                         </span>
                     )}
-                    <span className="rounded-full border border-zinc-900 bg-zinc-900 px-2 py-1 font-semibold text-white">
+                    <span className="rounded-full border border-primary bg-primary px-2 py-1 font-semibold text-primary-foreground">
                         {results.length}건
                     </span>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                    <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-4 text-zinc-700 hover:bg-zinc-100">
+                    <Button asChild variant="outline" className="rounded-full px-4">
                         <Link to="/">
                             <ArrowLeft className="h-4 w-4" />
                             홈으로
                         </Link>
                     </Button>
-                    <Button asChild className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700">
+                    <Button asChild className="rounded-full px-4">
                         <Link to="/store">스토어로 이동</Link>
                     </Button>
                 </div>
@@ -163,31 +163,31 @@ function SearchResultPage() {
             <section className="grid gap-3">
                 {results.length > 0 ? (
                     results.map((result) => (
-                        <Card key={result.id} className="overflow-hidden border-zinc-200/80 bg-white/95">
+                        <Card key={result.id} className="overflow-hidden">
                             <div className="grid gap-0 sm:grid-cols-[180px_1fr]">
                                 <img src={result.thumbnail} alt={result.title} className="h-40 w-full object-cover sm:h-full" />
                                 <CardContent className="flex flex-col justify-between gap-3 p-4">
                                     <div>
                                         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                                            <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 font-semibold text-zinc-700">
+                                            <span className="rounded-full border border-border bg-muted px-2 py-0.5 font-semibold text-muted-foreground">
                                                 {result.badge}
                                             </span>
-                                            <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-zinc-600">
+                                            <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">
                                                 {result.category}
                                             </span>
                                             {result.status && (
-                                                <span className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-zinc-600">
+                                                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">
                                                     {result.status}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-lg font-semibold text-zinc-900">{result.title}</p>
-                                        <p className="mt-1 text-sm text-zinc-600">{result.subtitle}</p>
-                                        <p className="mt-1 text-xs text-zinc-500">{result.meta}</p>
+                                        <p className="text-lg font-semibold text-foreground">{result.title}</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">{result.subtitle}</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">{result.meta}</p>
                                     </div>
 
                                     <div>
-                                        <Button asChild className="rounded-full bg-zinc-900 px-4 text-white hover:bg-zinc-700">
+                                        <Button asChild className="rounded-full px-4">
                                             <Link to={result.to}>
                                                 상세 보기
                                                 <ArrowUpRight className="h-4 w-4" />
@@ -199,14 +199,14 @@ function SearchResultPage() {
                         </Card>
                     ))
                 ) : (
-                    <Card className="border-zinc-200/80 bg-white/95">
+                    <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-zinc-900">
-                                <Search className="h-5 w-5 text-zinc-500" />
+                            <CardTitle className="flex items-center gap-2">
+                                <Search className="h-5 w-5 text-muted-foreground" />
                                 검색 결과가 없습니다
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="text-sm text-zinc-600">
+                        <CardContent className="text-sm text-muted-foreground">
                             키워드 또는 카테고리를 변경해서 다시 검색해 보세요.
                         </CardContent>
                     </Card>
