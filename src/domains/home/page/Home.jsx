@@ -113,7 +113,7 @@ export default function Home() {
                 <div className="relative z-10 max-w-4xl space-y-6">
                     <div className="inline-flex items-center gap-2 rounded-full border border-border bg-popover/75 px-3 py-1 text-xs font-medium tracking-wide text-muted-foreground">
                         <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        Don-Moa | 돈모아!
+                        Don-Moa | 돈모아
                     </div>
 
                     <h1 className="text-3xl font-black leading-tight text-foreground sm:text-4xl md:text-5xl">
