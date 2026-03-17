@@ -1,0 +1,4 @@
+aws_region     = "ap-northeast-2"
+project_name   = "3rd-project-frontend"
+s3_bucket_name = "your-unique-bucket-name"   # 전 세계 고유해야 함
+environment    = "prod"
