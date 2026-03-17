@@ -19,29 +19,29 @@ function MyPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-3xl border border-zinc-200/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">My Dashboard</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-zinc-900">내 활동</h2>
-                <p className="mt-2 text-sm text-zinc-600">구매, 후원, 배송, 쿠폰 상태를 한 화면에서 빠르게 확인하세요.</p>
+            <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">My Dashboard</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">내 활동</h2>
+                <p className="mt-2 text-sm text-muted-foreground">구매, 후원, 배송, 쿠폰 상태를 한 화면에서 빠르게 확인하세요.</p>
             </section>
 
             <section className="grid gap-3 sm:grid-cols-3">
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardContent className="p-4">
-                        <p className="text-xs text-zinc-500">최근 30일 주문</p>
-                        <p className="text-2xl font-bold text-zinc-900">{orderHistory.length}건</p>
+                        <p className="text-xs text-muted-foreground">최근 30일 주문</p>
+                        <p className="text-2xl font-bold text-foreground">{orderHistory.length}건</p>
                     </CardContent>
                 </Card>
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardContent className="p-4">
-                        <p className="text-xs text-zinc-500">배송중</p>
-                        <p className="text-2xl font-bold text-zinc-900">{shippingCount}건</p>
+                        <p className="text-xs text-muted-foreground">배송중</p>
+                        <p className="text-2xl font-bold text-foreground">{shippingCount}건</p>
                     </CardContent>
                 </Card>
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardContent className="p-4">
-                        <p className="text-xs text-zinc-500">보유 쿠폰 / 찜</p>
-                        <p className="text-2xl font-bold text-zinc-900">
+                        <p className="text-xs text-muted-foreground">보유 쿠폰 / 찜</p>
+                        <p className="text-2xl font-bold text-foreground">
                             {coupons.length} / {wishlistItems.length}
                         </p>
                     </CardContent>
@@ -52,14 +52,14 @@ function MyPage() {
                 {quickMenus.map((menu) => {
                     const Icon = menu.icon;
                     return (
-                        <Card key={menu.name} className="border-zinc-200/80 bg-white/95">
+                        <Card key={menu.name}>
                             <CardContent className="p-4">
-                                <p className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900">
-                                    <Icon className="h-4 w-4 text-cyan-700" />
+                                <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                                    <Icon className="h-4 w-4 text-primary" />
                                     {menu.name}
                                 </p>
-                                <p className="mt-1 text-xs text-zinc-500">{menu.desc}</p>
-                                <Button asChild variant="ghost" className="mt-2 h-8 rounded-full px-3 text-zinc-700 hover:bg-zinc-100">
+                                <p className="mt-1 text-xs text-muted-foreground">{menu.desc}</p>
+                                <Button asChild variant="ghost" className="mt-2 h-8 rounded-full px-3">
                                     <Link to={menu.to}>
                                         이동
                                         <Package className="h-3.5 w-3.5" />

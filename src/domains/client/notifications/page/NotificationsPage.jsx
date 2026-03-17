@@ -13,19 +13,19 @@ const notifications = [
 function NotificationsPage() {
     return (
         <div className="space-y-6">
-            <section className="rounded-3xl border border-zinc-200/80 bg-white/90 p-6 shadow-[0_14px_45px_rgba(15,23,42,0.08)] sm:p-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Notifications</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-zinc-900">알림 센터</h2>
-                <p className="mt-2 text-sm text-zinc-600">주문, 펀딩, 쿠폰, 채팅 알림을 한곳에서 확인하세요.</p>
+            <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Notifications</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">알림 센터</h2>
+                <p className="mt-2 text-sm text-muted-foreground">주문, 펀딩, 쿠폰, 채팅 알림을 한곳에서 확인하세요.</p>
             </section>
 
-            <Card className="border-zinc-200/80 bg-white/95">
+            <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
-                        <BellRing className="h-4 w-4 text-cyan-700" />
+                    <CardTitle className="flex items-center gap-2 text-base">
+                        <BellRing className="h-4 w-4 text-primary" />
                         최근 알림
                     </CardTitle>
-                    <Button variant="outline" className="rounded-full border-zinc-300 bg-white px-4 text-xs text-zinc-700 hover:bg-zinc-100">
+                    <Button variant="outline" className="rounded-full px-4 text-xs">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         전체 읽음
                     </Button>
@@ -34,15 +34,15 @@ function NotificationsPage() {
                     {notifications.map((notification, idx) => (
                         <div
                             key={`${notification.message}-${idx}`}
-                            className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm"
+                            className="rounded-xl border border-border bg-muted px-4 py-3 text-sm"
                         >
                             <div className="flex items-center justify-between gap-2">
-                                <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-700">
+                                <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs text-foreground">
                                     {notification.type}
                                 </span>
-                                <span className="text-xs text-zinc-500">{notification.time}</span>
+                                <span className="text-xs text-muted-foreground">{notification.time}</span>
                             </div>
-                            <p className="mt-2 text-zinc-700">{notification.message}</p>
+                            <p className="mt-2 text-foreground">{notification.message}</p>
                         </div>
                     ))}
                 </CardContent>

@@ -89,9 +89,9 @@ export default function Header({
                     <div className="hidden items-center gap-2 lg:flex">
                         <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
-                            className="rounded-full"
+                            className="rounded-full text-foreground"
                             onClick={toggleTheme}
                             aria-label={isDark ? "라이트 모드 전환" : "다크 모드 전환"}
                         >
