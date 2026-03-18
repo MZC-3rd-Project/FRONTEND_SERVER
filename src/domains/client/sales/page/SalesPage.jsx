@@ -17,6 +17,7 @@ import {
 import StickySearchPanel from "@/components/search/StickySearchPanel.jsx";
 import { SALES_IMAGE_PLACEHOLDER } from "@/domains/client/sales/lib/salesMappers";
 import { useNormalSalesQuery } from "@/domains/client/sales/query/useSalesQueries";
+import { encodeIdPathSegment } from "@/common/utils/id";
 
 function getSaleStatusVariant(statusCode) {
     if (statusCode === "ON_SALE") return "default";
@@ -175,7 +176,7 @@ function SalesPage() {
                                             {item.soldOut ? "재고 소진" : "재고 소진 시 판매 종료"}
                                         </p>
                                         <Button asChild size="sm" className="rounded-full px-4">
-                                            <Link to={`/sales/${item.saleId}`}>
+                                            <Link to={`/sales/${encodeIdPathSegment(item.saleId)}`}>
                                                 상품 상세
                                                 <ArrowRight className="h-3.5 w-3.5" />
                                             </Link>

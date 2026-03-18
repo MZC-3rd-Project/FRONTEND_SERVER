@@ -17,6 +17,7 @@ import {
 import StickySearchPanel from "@/components/search/StickySearchPanel.jsx";
 import { DEAL_IMAGE_PLACEHOLDER } from "@/domains/client/deals/lib/dealsMappers";
 import { useHotDealsQuery } from "@/domains/client/deals/query/useDealsQueries";
+import { encodeIdPathSegment } from "@/common/utils/id";
 
 function DealsListSkeleton() {
     return (
@@ -149,7 +150,11 @@ function DealsPage() {
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-muted-foreground">진행률 {deal.progressRateText}%</p>
                                         <Button asChild size="sm" className="rounded-full px-4">
-                                            <Link to={`/deals/${deal.hotDealId}?itemId=${deal.itemId ?? ""}&itemType=${deal.itemType}`}>
+                                            <Link
+                                                to={`/deals/${encodeIdPathSegment(deal.hotDealId)}?itemId=${encodeURIComponent(
+                                                    String(deal.itemId ?? "")
+                                                )}&itemType=${encodeURIComponent(String(deal.itemType ?? ""))}`}
+                                            >
                                                 상세 보기
                                             </Link>
                                         </Button>

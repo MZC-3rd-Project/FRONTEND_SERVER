@@ -23,6 +23,10 @@ export default defineConfig(({ mode }) => {
         ? {
             "/api": proxyOptions,
             "/bff": proxyOptions,
+            "/ws": {
+              ...proxyOptions,
+              ws: true,
+            },
             "/login": proxyOptions,
             "/logout": proxyOptions,
           }

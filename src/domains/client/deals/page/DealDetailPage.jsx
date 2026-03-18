@@ -265,7 +265,10 @@ function DealDetailPage() {
                     </CardContent>
                 </Card>
                 <div className="mt-4">
-                    <StickyStoreChat storeName={store.name || "스토어"} />
+                    <StickyStoreChat
+                        storeName={store.name || "스토어"}
+                        itemId={deal.itemId}
+                    />
                 </div>
             </aside>
         </div>

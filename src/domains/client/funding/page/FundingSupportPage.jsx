@@ -98,7 +98,11 @@ function FundingSupportPage() {
         }
 
         const orderId = `FD${Date.now()}`;
-        navigate(`/funding/support/complete?campaignId=${campaign.id}&orderId=${orderId}`);
+        navigate(
+            `/funding/support/complete?campaignId=${encodeURIComponent(String(campaign.id ?? ""))}&orderId=${encodeURIComponent(
+                String(orderId)
+            )}`
+        );
     };
 
     return (

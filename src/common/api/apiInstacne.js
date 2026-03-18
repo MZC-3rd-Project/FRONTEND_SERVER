@@ -3,6 +3,34 @@ import axios from "axios";
 const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 const isDev = import.meta.env.DEV;
 
+function quoteLargeIntegerLiterals(raw) {
+    return raw
+        .replace(/(:\s*)(-?\d{16,})(?=\s*[,}\]])/g, '$1"$2"')
+        .replace(/((?:\[|,)\s*)(-?\d{16,})(?=\s*[,}\]])/g, '$1"$2"');
+}
+
+function parseResponseData(raw) {
+    if (typeof raw !== "string") {
+        return raw;
+    }
+
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+        return raw;
+    }
+
+    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) {
+        return raw;
+    }
+
+    try {
+        return JSON.parse(quoteLargeIntegerLiterals(trimmed));
+    } catch {
+        return raw;
+    }
+}
+
 function stripApiSuffix(url) {
     if (!url) {
         return "";
@@ -76,6 +104,7 @@ export const axiosInstance = axios.create({
     baseURL: apiBaseURL,
     timeout: 5000,
     withCredentials: true,
+    transformResponse: [parseResponseData],
     headers: {
         'Content-Type': 'application/json'
     }
@@ -85,6 +114,7 @@ export const bffAxiosInstance = axios.create({
     baseURL: stripApiSuffix(apiBaseURL) || undefined,
     timeout: 5000,
     withCredentials: true,
+    transformResponse: [parseResponseData],
     headers: {
         'Content-Type': 'application/json'
     }
