@@ -1,27 +1,77 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { CreditCard, HeartHandshake } from "lucide-react";
+import { CreditCard, HeartHandshake, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { findFundingById } from "@/domains/client/funding/mock/fundingData.js";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
+import { useFundingCampaignDetailQuery } from "@/domains/client/funding/query/useFundingQueries";
 import { paymentMethods } from "@/domains/client/order/mock/orderData.js";
 
 function FundingSupportPage() {
     const { campaignId } = useParams();
     const navigate = useNavigate();
-    const campaign = findFundingById(campaignId);
+    const { data: campaign, isLoading, isError, error, refetch, isFetching } = useFundingCampaignDetailQuery(campaignId);
 
     const [supporterName, setSupporterName] = useState("김도윤");
     const [supporterEmail, setSupporterEmail] = useState("donmoa.user@example.com");
-    const [selectedRewardId, setSelectedRewardId] = useState(campaign?.rewardOptions[0]?.id ?? "");
+    const [selectedRewardId, setSelectedRewardId] = useState("");
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentMethods[0]?.id ?? "");
 
+    const activeRewardId = useMemo(() => {
+        if (!campaign?.rewardOptions?.length) {
+            return "";
+        }
+
+        const hasSelectedReward = campaign.rewardOptions.some(
+            (reward) => String(reward.id) === String(selectedRewardId)
+        );
+
+        return hasSelectedReward ? String(selectedRewardId) : String(campaign.rewardOptions[0].id);
+    }, [campaign, selectedRewardId]);
+
     const selectedReward = useMemo(
-        () => campaign?.rewardOptions.find((reward) => reward.id === selectedRewardId),
-        [campaign, selectedRewardId]
+        () => campaign?.rewardOptions.find((reward) => String(reward.id) === activeRewardId),
+        [activeRewardId, campaign]
     );
+    const selectedRewardStock = selectedReward?.availableQuantity ?? campaign?.stock?.availableQuantity ?? 0;
+
+    if (isLoading) {
+        return (
+            <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+                <Card className="h-48 animate-pulse bg-card" />
+                <Card className="h-48 animate-pulse bg-card" />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="grid min-h-[60vh] place-items-center">
+                <Card className="w-full max-w-lg">
+                    <CardHeader>
+                        <CardTitle>후원 정보를 준비하지 못했습니다</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Alert variant="destructive">
+                            <AlertTitle>조회 실패</AlertTitle>
+                            <AlertDescription>{error?.message ?? "잠시 후 다시 시도해 주세요."}</AlertDescription>
+                        </Alert>
+                        <div className="flex flex-wrap gap-2">
+                            <Button type="button" onClick={() => refetch()} disabled={isFetching}>
+                                <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+                                다시 시도
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link to="/funding">펀딩 목록으로 이동</Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     if (!campaign) {
         return (
@@ -40,7 +90,13 @@ function FundingSupportPage() {
         );
     }
 
+    const canSubmit = Boolean(selectedReward) && !selectedReward?.soldOut;
+
     const submitSupport = () => {
+        if (!campaign || !selectedReward) {
+            return;
+        }
+
         const orderId = `FD${Date.now()}`;
         navigate(`/funding/support/complete?campaignId=${campaign.id}&orderId=${orderId}`);
     };
@@ -52,7 +108,7 @@ function FundingSupportPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-primary">Funding Support</p>
                     <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">후원하기</h2>
                     <p className="mt-2 text-sm text-muted-foreground">
-                        <span className="font-semibold text-foreground">{campaign.name}</span> 프로젝트를 후원하고 리워드를 선택하세요.
+                        <span className="font-semibold text-foreground">{campaign.title}</span> 프로젝트를 후원하고 리워드를 선택하세요.
                     </p>
                 </section>
 
@@ -61,22 +117,33 @@ function FundingSupportPage() {
                         <CardTitle className="text-base">리워드 선택</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {campaign.rewardOptions.map((reward) => (
-                            <button
-                                key={reward.id}
-                                type="button"
-                                onClick={() => setSelectedRewardId(reward.id)}
-                                className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                                    selectedRewardId === reward.id
-                                        ? "border-primary bg-primary text-primary-foreground"
-                                        : "border-border bg-card text-foreground hover:border-primary hover:bg-accent/40"
-                                }`}
-                            >
-                                <p className="text-sm font-semibold">{reward.title}</p>
-                                <p className="mt-1 text-xs opacity-85">{reward.shipping}</p>
-                                <p className="mt-2 text-base font-bold">{reward.price}</p>
-                            </button>
-                        ))}
+                        {campaign.rewardOptions.length > 0 ? (
+                            campaign.rewardOptions.map((reward) => (
+                                <button
+                                    key={reward.id}
+                                    type="button"
+                                    onClick={() => setSelectedRewardId(String(reward.id))}
+                                    disabled={reward.soldOut}
+                                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                                        activeRewardId === String(reward.id)
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-border bg-card text-foreground hover:border-primary hover:bg-accent/40"
+                                    } ${reward.soldOut ? "cursor-not-allowed opacity-50" : ""}`}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-semibold">{reward.title}</p>
+                                        {reward.soldOut ? <span className="text-xs">품절</span> : null}
+                                    </div>
+                                    <p className="mt-1 text-xs opacity-85">{reward.shippingText}</p>
+                                    {reward.availableQuantity !== null ? (
+                                        <p className="mt-1 text-xs opacity-85">남은 수량 {reward.availableQuantity.toLocaleString()}개</p>
+                                    ) : null}
+                                    <p className="mt-2 text-base font-bold">{reward.priceText}</p>
+                                </button>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground">현재 선택 가능한 리워드가 없습니다.</p>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -139,11 +206,11 @@ function FundingSupportPage() {
                     <CardContent className="space-y-2 text-sm">
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>프로젝트</span>
-                            <span className="font-semibold text-foreground">{campaign.name}</span>
+                            <span className="font-semibold text-foreground">{campaign.title}</span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>선택 리워드</span>
-                            <span className="font-semibold text-foreground">{selectedReward?.title}</span>
+                            <span className="font-semibold text-foreground">{selectedReward?.title ?? "-"}</span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>결제 수단</span>
@@ -151,19 +218,26 @@ function FundingSupportPage() {
                                 {paymentMethods.find((method) => method.id === selectedPaymentId)?.name}
                             </span>
                         </div>
+                        <div className="flex items-center justify-between text-muted-foreground">
+                            <span>남은 재고</span>
+                            <span className="font-semibold text-foreground">
+                                {selectedRewardStock.toLocaleString()}개
+                            </span>
+                        </div>
                         <div className="my-2 h-px bg-border" />
                         <div className="flex items-center justify-between text-base font-bold text-foreground">
                             <span>총 후원 금액</span>
-                            <span>{selectedReward?.price ?? "-"}</span>
+                            <span>{selectedReward?.priceText ?? "-"}</span>
                         </div>
 
                         <Button
                             type="button"
                             onClick={submitSupport}
+                            disabled={!canSubmit}
                             className="mt-2 h-10 w-full rounded-full text-sm font-semibold"
                         >
                             <HeartHandshake className="h-4 w-4" />
-                            후원 결제 진행
+                            {canSubmit ? "후원 결제 진행" : "후원 준비 중"}
                         </Button>
                         <Button asChild variant="ghost" className="h-9 w-full rounded-full">
                             <Link to={`/funding/${campaign.id}`}>상세로 돌아가기</Link>

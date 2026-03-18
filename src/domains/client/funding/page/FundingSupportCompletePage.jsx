@@ -3,13 +3,13 @@ import { CheckCircle2, HeartHandshake } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { findFundingById } from "@/domains/client/funding/mock/fundingData.js";
+import { useFundingCampaignDetailQuery } from "@/domains/client/funding/query/useFundingQueries";
 
 function FundingSupportCompletePage() {
     const [params] = useSearchParams();
     const campaignId = params.get("campaignId") ?? "";
     const orderId = params.get("orderId") ?? "FD-DEMO-0001";
-    const campaign = findFundingById(campaignId);
+    const { data: campaign } = useFundingCampaignDetailQuery(campaignId);
 
     return (
         <div className="mx-auto max-w-3xl space-y-6">
@@ -33,14 +33,14 @@ function FundingSupportCompletePage() {
                     </div>
                     <div className="flex items-center justify-between">
                         <span>프로젝트</span>
-                        <span className="font-semibold text-zinc-900">{campaign?.name ?? "프로젝트"}</span>
+                        <span className="font-semibold text-zinc-900">{campaign?.title ?? "프로젝트"}</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span>메이커</span>
-                        <span className="font-semibold text-zinc-900">{campaign?.maker ?? "-"}</span>
+                        <span className="font-semibold text-zinc-900">{campaign?.makerName ?? "-"}</span>
                     </div>
                     <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">
-                        프로젝트 소식/리워드 발송 일정은 업데이트 탭과 알림으로 전달됩니다.
+                        프로젝트 소식과 리워드 발송 일정은 알림과 상세 페이지에서 확인할 수 있습니다.
                     </div>
                 </CardContent>
             </Card>
@@ -52,11 +52,11 @@ function FundingSupportCompletePage() {
                         다른 펀딩 둘러보기
                     </Link>
                 </Button>
-                {campaign && (
+                {campaign ? (
                     <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-5 text-zinc-700 hover:bg-zinc-100">
                         <Link to={`/funding/${campaign.id}`}>프로젝트로 이동</Link>
                     </Button>
-                )}
+                ) : null}
                 <Button asChild variant="ghost" className="rounded-full px-5 text-zinc-700 hover:bg-zinc-100">
                     <Link to="/my">마이페이지로 이동</Link>
                 </Button>

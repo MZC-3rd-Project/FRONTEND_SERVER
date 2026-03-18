@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
+import { buildFundingCampaignPath } from "@/domains/client/funding/lib/fundingPaths";
 
 const highlights = [
     { label: "오늘 오픈 딜", value: "24", detail: "한정 특가 진행 중" },
@@ -176,7 +177,7 @@ export default function Home() {
                     {fundingProjects.map((project, index) => (
                         <Link
                             key={project.id}
-                            to={`/funding/${project.id}`}
+                            to={buildFundingCampaignPath(project.id)}
                             className={cn("reveal-up block animate-in fade-in", getDelayClass(index))}
                         >
                             <Card className="h-full border-border bg-card shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(15,23,42,0.12)]">

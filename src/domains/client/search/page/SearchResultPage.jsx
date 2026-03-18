@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
+import { buildFundingCampaignPath } from "@/domains/client/funding/lib/fundingPaths";
 import { hotDeals } from "@/domains/client/deals/mock/dealsData.js";
 import { salesItems } from "@/domains/client/sales/mock/salesData.js";
 import { stores } from "@/domains/client/store/mock/storeData.js";
@@ -27,7 +28,7 @@ const searchResults = [
         thumbnail: campaign.thumbnail,
         subtitle: `${campaign.raised} · ${campaign.progress}% · ${campaign.supporters.toLocaleString()}명 참여`,
         meta: `마감 ${campaign.deadline} · ${campaign.leftLabel}`,
-        to: `/funding/${campaign.id}`,
+        to: buildFundingCampaignPath(campaign.id),
         badge: "펀딩",
         searchText: `${campaign.name} ${campaign.category} ${campaign.status}`,
     })),
