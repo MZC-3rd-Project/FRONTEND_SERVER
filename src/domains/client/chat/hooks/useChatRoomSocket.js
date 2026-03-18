@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
     buildChatWebSocketUrl,
@@ -240,7 +240,7 @@ export function useChatRoomSocket({
         };
     }, [enabled, roomId]);
 
-    function sendJsonFrame(frame) {
+    const sendJsonFrame = useCallback((frame) => {
         const socket = wsRef.current;
 
         if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -249,15 +249,10 @@ export function useChatRoomSocket({
 
         socket.send(JSON.stringify(frame));
         return true;
-    }
+    }, []);
 
-    return {
-        connectionState,
-        isConnected: connectionState === "connected" || connectionState === "subscribed",
-        isSubscribed: connectionState === "subscribed",
-        lastPongAt,
-        subscribedRoomId,
-        sendMessage: ({ clientMessageId, content, messageType = "CHAT", metadata }) =>
+    const sendMessage = useCallback(
+        ({ clientMessageId, content, messageType = "CHAT", metadata }) =>
             sendJsonFrame(
                 buildSendMessageFrame({
                     roomId,
@@ -267,7 +262,24 @@ export function useChatRoomSocket({
                     metadata,
                 })
             ),
-        sendRead: (lastReadMessageId) =>
-            sendJsonFrame(buildReadFrame(roomId, lastReadMessageId)),
-    };
+        [roomId, sendJsonFrame]
+    );
+
+    const sendRead = useCallback(
+        (lastReadMessageId) => sendJsonFrame(buildReadFrame(roomId, lastReadMessageId)),
+        [roomId, sendJsonFrame]
+    );
+
+    return useMemo(
+        () => ({
+            connectionState,
+            isConnected: connectionState === "connected" || connectionState === "subscribed",
+            isSubscribed: connectionState === "subscribed",
+            lastPongAt,
+            subscribedRoomId,
+            sendMessage,
+            sendRead,
+        }),
+        [connectionState, lastPongAt, sendMessage, sendRead, subscribedRoomId]
+    );
 }

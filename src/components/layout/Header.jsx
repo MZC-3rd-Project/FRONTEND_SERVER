@@ -18,8 +18,8 @@ const menus = [
 
 export default function Header({
                                    isLoggedIn = true,
-                                   hasNotifications = 3,
-                                   hasMessages = 2,
+                                   hasNotifications = 0,
+                                   hasMessages = 0,
                                }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);

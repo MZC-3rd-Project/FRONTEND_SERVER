@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Bell, MapPin, Package, ReceiptText, TicketPercent, WalletCards } from "lucide-react";
+import { Bell, MapPin, MessageCircleMore, Package, ReceiptText, TicketPercent, WalletCards } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ const quickMenus = [
     { name: "쿠폰/포인트", to: "/my/coupons", icon: TicketPercent, desc: "할인 쿠폰, 포인트" },
     { name: "배송지 관리", to: "/my/addresses", icon: MapPin, desc: "기본 배송지, 추가 배송지" },
     { name: "찜한 상품", to: "/wishlist", icon: WalletCards, desc: "관심 상품 모아보기" },
+    { name: "채팅", to: "/my/messages", icon: MessageCircleMore, desc: "스토어 문의 대화 확인" },
     { name: "알림", to: "/my/notifications", icon: Bell, desc: "주문/펀딩 소식 확인" },
 ];
 
