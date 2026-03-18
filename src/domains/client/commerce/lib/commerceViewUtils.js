@@ -21,6 +21,15 @@ export function toText(value, fallback = "") {
     return fallback;
 }
 
+export function toId(value, fallback = null) {
+    if (value === null || value === undefined) {
+        return fallback;
+    }
+
+    const normalized = String(value).trim();
+    return normalized ? normalized : fallback;
+}
+
 export function parseDate(value) {
     if (!value) {
         return null;
@@ -113,7 +122,7 @@ export function mapStock(rawStock = {}, fallback = {}) {
     const optionStocks = Array.isArray(rawStock?.optionStocks)
         ? rawStock.optionStocks
             .map((optionStock) => ({
-                itemOptionId: toNullableNumber(optionStock?.itemOptionId),
+                itemOptionId: toId(optionStock?.itemOptionId),
                 availableQuantity: toNumber(optionStock?.availableQuantity, 0),
                 soldOut: Boolean(optionStock?.soldOut),
             }))
@@ -163,7 +172,7 @@ export function mapDetailSections(rawSections) {
 
 export function mapStore(raw = {}, fallback = {}) {
     return {
-        id: raw?.id ?? fallback?.id ?? null,
+        id: toId(raw?.id ?? fallback?.id),
         name: toText(raw?.name ?? raw?.storeName, fallback?.name ?? "스토어 정보 준비 중"),
         tagline: toText(raw?.tagline ?? raw?.description, fallback?.tagline ?? ""),
     };
@@ -178,7 +187,7 @@ export function mapItem(raw = {}, fallback = {}) {
         "";
 
     return {
-        id: raw?.id ?? raw?.itemId ?? fallback?.id ?? fallback?.itemId ?? null,
+        id: toId(raw?.id ?? raw?.itemId ?? fallback?.id ?? fallback?.itemId),
         itemType: toText(raw?.itemType ?? fallback?.itemType, "PRODUCT"),
         title: toText(raw?.title, fallback?.title ?? "상품 정보 준비 중"),
         summary: toText(raw?.summary, fallback?.summary ?? toText(raw?.description, "상품 요약이 준비 중입니다.")),

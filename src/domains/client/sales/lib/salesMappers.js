@@ -6,6 +6,7 @@ import {
     mapReviews,
     mapStock,
     mapStore,
+    toId,
     toNullableNumber,
     toText,
 } from "@/domains/client/commerce/lib/commerceViewUtils";
@@ -38,13 +39,12 @@ export function mapNormalSaleListPayload(payload) {
             );
             const statusCode = toText(item?.status, "ON_SALE").toUpperCase();
             const stock = toNullableNumber(item?.stock);
-
-            const saleId = item?.saleId ?? item?.id ?? item?.itemId;
+            const saleId = toId(item?.saleId ?? item?.id ?? item?.itemId);
 
             return {
                 id: saleId,
                 saleId,
-                itemId: item?.itemId ?? item?.saleId ?? item?.id,
+                itemId: toId(item?.itemId ?? item?.saleId ?? item?.id),
                 title: toText(item?.title, "이름 없는 일반판매 상품"),
                 itemType: toText(item?.itemType, "PRODUCT"),
                 itemTypeLabel: mapItemTypeLabel(item?.itemType),
@@ -58,7 +58,7 @@ export function mapNormalSaleListPayload(payload) {
                 thumbnailUrl: toText(item?.thumbnailUrl, ""),
                 stock: stock ?? 0,
                 soldOut: stock === 0 || statusCode === "SOLD_OUT" || statusCode === "ENDED",
-                activeCampaignId: toNullableNumber(item?.activeCampaignId ?? item?.campaignId),
+                activeCampaignId: toId(item?.activeCampaignId ?? item?.campaignId),
                 fundingTitle: toText(item?.fundingTitle, ""),
                 storeName: toText(item?.storeName, ""),
             };
@@ -69,10 +69,10 @@ export function mapNormalSaleListPayload(payload) {
 }
 
 export function mapNormalSaleDetailPayload(raw = {}) {
-    const saleId = raw?.saleId ?? raw?.id ?? raw?.itemId;
+    const saleId = toId(raw?.saleId ?? raw?.id ?? raw?.itemId);
     const stock = mapStock(raw?.stock);
     const item = mapItem(raw?.item, {
-        itemId: raw?.itemId,
+        itemId: toId(raw?.itemId),
         itemType: raw?.itemType,
         title: raw?.title,
         summary: raw?.summary,
@@ -87,7 +87,7 @@ export function mapNormalSaleDetailPayload(raw = {}) {
     return {
         id: saleId,
         saleId,
-        itemId: raw?.itemId ?? raw?.saleId ?? raw?.id,
+        itemId: toId(raw?.itemId ?? raw?.saleId ?? raw?.id),
         itemType: toText(raw?.itemType ?? item.itemType, "PRODUCT"),
         itemTypeLabel: mapItemTypeLabel(raw?.itemType ?? item.itemType),
         salesChannel: toText(raw?.salesChannel, "NORMAL"),
@@ -103,7 +103,7 @@ export function mapNormalSaleDetailPayload(raw = {}) {
         stock,
         originFunding: raw?.originFunding
             ? {
-                campaignId: raw?.originFunding?.campaignId ?? null,
+                campaignId: toId(raw?.originFunding?.campaignId),
                 title: toText(raw?.originFunding?.title, ""),
             }
             : raw?.fundingTitle

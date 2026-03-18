@@ -21,6 +21,15 @@ function toText(value, fallback = "") {
     return fallback;
 }
 
+function toId(value, fallback = null) {
+    if (value === null || value === undefined) {
+        return fallback;
+    }
+
+    const normalized = String(value).trim();
+    return normalized ? normalized : fallback;
+}
+
 function parseDate(value) {
     if (!value) {
         return null;
@@ -99,7 +108,7 @@ function mapFundingStatus(status) {
 function mapStock(rawStock = {}) {
     const optionStocks = Array.isArray(rawStock.optionStocks)
         ? rawStock.optionStocks.map((optionStock) => ({
-            itemOptionId: toNullableNumber(optionStock?.itemOptionId),
+            itemOptionId: toId(optionStock?.itemOptionId),
             availableQuantity: toNumber(optionStock?.availableQuantity, 0),
             soldOut: Boolean(optionStock?.soldOut),
         }))
@@ -137,10 +146,10 @@ function mapRewardOptions(raw, item, stock) {
     if (Array.isArray(raw?.rewardOptions) && raw.rewardOptions.length > 0) {
         return raw.rewardOptions.map((rewardOption) => {
             const price = toNullableNumber(rewardOption?.price);
-            const itemOptionId = toNullableNumber(rewardOption?.itemOptionId);
+            const itemOptionId = toId(rewardOption?.itemOptionId);
 
             return {
-                id: rewardOption?.id ?? itemOptionId ?? rewardOption?.title,
+                id: toId(rewardOption?.id ?? itemOptionId, rewardOption?.title),
                 title: toText(rewardOption?.title, "리워드"),
                 shippingText: toText(rewardOption?.shippingText ?? rewardOption?.shipping, "발송 일정 추후 안내"),
                 price,
@@ -156,12 +165,12 @@ function mapRewardOptions(raw, item, stock) {
         const basePrice = toNumber(item.price, 0);
 
         return item.options.map((option) => {
-            const itemOptionId = toNullableNumber(option?.id);
+            const itemOptionId = toId(option?.id);
             const additionalPrice = toNumber(option?.additionalPrice, 0);
             const totalPrice = basePrice + additionalPrice;
 
             return {
-                id: itemOptionId ?? option?.optionName,
+                id: toId(itemOptionId, option?.optionName),
                 title: toText(option?.optionName, "옵션"),
                 shippingText: "발송 일정 추후 안내",
                 price: totalPrice,
@@ -205,7 +214,7 @@ function mapDetailSections(rawSections) {
 
 function mapStore(raw) {
     return {
-        id: raw?.id ?? null,
+        id: toId(raw?.id),
         name: toText(raw?.name, "스토어 정보 준비 중"),
         tagline: toText(raw?.tagline, "프로젝트를 운영하는 파트너 스토어"),
         rating: toNumber(raw?.rating, 0),
@@ -223,7 +232,7 @@ function mapItem(raw, fallback = {}) {
         "";
 
     return {
-        id: raw?.id ?? fallback.itemId ?? null,
+        id: toId(raw?.id ?? fallback.itemId),
         title: toText(raw?.title, fallback.title || "상품 정보 준비 중"),
         summary: toText(raw?.summary, fallback.summary || toText(raw?.description, "상품 요약이 준비 중입니다.")),
         description: toText(raw?.description, "상세 설명이 준비 중입니다."),
@@ -245,7 +254,7 @@ export function mapFundingCampaignListPayload(payload) {
             const progressRate = computeProgressRate(campaign);
 
             return {
-                id: campaign?.campaignId ?? campaign?.id,
+                id: toId(campaign?.campaignId ?? campaign?.id),
                 title: toText(campaign?.title, "제목 없는 펀딩"),
                 summary: toText(campaign?.summary, ""),
                 category: toText(campaign?.category, "기타"),
@@ -282,8 +291,8 @@ export function mapFundingCampaignDetailPayload(raw = {}) {
     const rewardOptions = mapRewardOptions(raw, item, stock);
 
     return {
-        id: raw?.campaignId ?? raw?.id,
-        itemId: raw?.itemId ?? raw?.item?.id ?? null,
+        id: toId(raw?.campaignId ?? raw?.id),
+        itemId: toId(raw?.itemId ?? raw?.item?.id),
         itemType: toText(raw?.itemType ?? raw?.item?.itemType, "PRODUCT"),
         salesChannel: toText(raw?.salesChannel, "FUNDING"),
         title: toText(raw?.title, item.title),

@@ -8,6 +8,7 @@ import {
     mapReviews,
     mapStock,
     mapStore,
+    toId,
     toNullableNumber,
     toNumber,
     toText,
@@ -83,9 +84,9 @@ export function mapHotDealListPayload(payload) {
             const progressRate = computeProgressRate(deal);
 
             return {
-                id: deal?.hotDealId ?? deal?.id,
-                hotDealId: deal?.hotDealId ?? deal?.id,
-                itemId: deal?.itemId ?? null,
+                id: toId(deal?.hotDealId ?? deal?.id),
+                hotDealId: toId(deal?.hotDealId ?? deal?.id),
+                itemId: toId(deal?.itemId),
                 itemType: toText(deal?.itemType, "PRODUCT"),
                 title: toText(deal?.title, "이름 없는 핫딜"),
                 statusCode: toText(deal?.status, soldOut ? "ENDED" : "ACTIVE").toUpperCase(),
@@ -113,7 +114,7 @@ export function mapHotDealListPayload(payload) {
 
 export function mapHotDealDetailPayload(raw = {}) {
     const item = mapItem(raw?.item, {
-        itemId: raw?.itemId,
+        itemId: toId(raw?.itemId),
         itemType: raw?.itemType,
         title: raw?.title,
         summary: raw?.summary,
@@ -139,9 +140,9 @@ export function mapHotDealDetailPayload(raw = {}) {
     const statusCode = toText(raw?.status, soldOut ? "ENDED" : "ACTIVE").toUpperCase();
 
     return {
-        id: raw?.hotDealId ?? raw?.id,
-        hotDealId: raw?.hotDealId ?? raw?.id,
-        itemId: raw?.itemId ?? item.id ?? null,
+        id: toId(raw?.hotDealId ?? raw?.id),
+        hotDealId: toId(raw?.hotDealId ?? raw?.id),
+        itemId: toId(raw?.itemId ?? item.id),
         itemType: toText(raw?.itemType ?? item.itemType, "PRODUCT"),
         salesChannel: toText(raw?.salesChannel, "HOT_DEAL"),
         title: toText(raw?.title, item.title),
@@ -174,8 +175,8 @@ export function mapHotDealDetailPayload(raw = {}) {
         reviews,
         checkout: raw?.checkout ?? {
             entryType: "SALES_CHECKOUT",
-            itemId: raw?.itemId ?? item.id ?? null,
-            hotDealId: raw?.hotDealId ?? raw?.id ?? null,
+            itemId: toId(raw?.itemId ?? item.id),
+            hotDealId: toId(raw?.hotDealId ?? raw?.id),
         },
         canPurchase: !soldOut && statusCode !== "ENDED" && statusCode !== "FINISHED",
     };
