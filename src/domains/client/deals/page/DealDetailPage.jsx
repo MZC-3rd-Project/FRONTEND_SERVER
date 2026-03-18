@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { AlertCircle, Flame, PackageCheck, RefreshCw, Store, Timer } from "lucide-react";
+import { AlertCircle, Flame, PackageCheck, RefreshCw, ShoppingCart, Store, Timer } from "lucide-react";
 
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
+import { buildDealCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
+import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
 import { DEAL_IMAGE_PLACEHOLDER } from "@/domains/client/deals/lib/dealsMappers";
 import { useHotDealDetailQuery } from "@/domains/client/deals/query/useDealsQueries";
 
@@ -55,6 +58,8 @@ function DealDetailPage() {
     const [searchParams] = useSearchParams();
     const itemId = searchParams.get("itemId") ?? "";
     const itemType = searchParams.get("itemType") ?? "PRODUCT";
+    const addCartItemMutation = useAddCartItemMutation();
+    const [cartFeedback, setCartFeedback] = useState(null);
     const { data: deal, isLoading, isError, error, refetch, isFetching } = useHotDealDetailQuery({
         hotDealId: dealId,
         itemId,
@@ -114,6 +119,23 @@ function DealDetailPage() {
     const store = deal.store;
     const reviews = deal.reviews;
 
+    const handleAddToCart = async () => {
+        setCartFeedback(null);
+
+        try {
+            await addCartItemMutation.mutateAsync(buildDealCartItemInput(deal));
+            setCartFeedback({
+                type: "success",
+                message: "장바구니에 핫딜 상품을 담았습니다.",
+            });
+        } catch (mutationError) {
+            setCartFeedback({
+                type: "error",
+                message: mutationError?.message ?? "장바구니 담기에 실패했습니다.",
+            });
+        }
+    };
+
     return (
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
             <div className="order-2 space-y-6 lg:order-1">
@@ -156,18 +178,40 @@ function DealDetailPage() {
                                 ) : null}
                             </div>
 
-                            <div className="flex gap-2 pt-1">
+                            <div className="flex flex-wrap gap-2 pt-1">
                                 {deal.canPurchase ? (
-                                    <Button asChild className="rounded-full px-5">
-                                        <Link to="/checkout">지금 구매</Link>
-                                    </Button>
+                                    <>
+                                        <Button
+                                            type="button"
+                                            onClick={handleAddToCart}
+                                            disabled={addCartItemMutation.isPending}
+                                            className="rounded-full px-5"
+                                        >
+                                            <ShoppingCart className="h-4 w-4" />
+                                            {addCartItemMutation.isPending ? "담는 중..." : "장바구니 담기"}
+                                        </Button>
+                                        <Button asChild variant="outline" className="rounded-full px-5">
+                                            <Link to="/cart">장바구니 보기</Link>
+                                        </Button>
+                                    </>
                                 ) : (
                                     <Button disabled className="rounded-full px-5">구매 불가</Button>
                                 )}
-                                <Button asChild variant="outline" className="rounded-full px-5">
+                                <Button asChild variant="ghost" className="rounded-full px-5">
                                     <Link to="/deals">목록으로</Link>
                                 </Button>
                             </div>
+                            {cartFeedback ? (
+                                <Alert variant={cartFeedback.type === "error" ? "destructive" : "default"}>
+                                    {cartFeedback.type === "error" ? (
+                                        <AlertCircle className="h-4 w-4" />
+                                    ) : (
+                                        <ShoppingCart className="h-4 w-4" />
+                                    )}
+                                    <AlertTitle>{cartFeedback.type === "error" ? "장바구니 담기 실패" : "장바구니 담기 완료"}</AlertTitle>
+                                    <AlertDescription>{cartFeedback.message}</AlertDescription>
+                                </Alert>
+                            ) : null}
                         </div>
                     </div>
                 </section>
