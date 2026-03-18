@@ -25,7 +25,12 @@ import {
 } from "@/components/ui/empty.tsx";
 import { Textarea } from "@/components/ui/textarea";
 import { chatKeys, useChatRoomsQuery, useInfiniteChatMessagesQuery, useSendChatMessageMutation, useUpdateChatReadPointerMutation } from "@/domains/client/chat/query/useChatQueries";
-import { createClientMessageId, flattenChatMessagePages } from "@/domains/client/chat/lib/chatUtils";
+import {
+    createClientMessageId,
+    flattenChatMessagePages,
+    readStoredChatSelfSenderIds,
+    rememberStoredChatSelfSenderIds,
+} from "@/domains/client/chat/lib/chatUtils";
 import { useChatRoomSocket } from "@/domains/client/chat/hooks/useChatRoomSocket";
 
 function getMessageIdentityKeys(message) {
@@ -134,7 +139,7 @@ function MessagesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const [draftState, setDraftState] = useState({ roomId: "", value: "" });
     const [liveMessageState, setLiveMessageState] = useState({ roomId: "", messages: [] });
-    const [knownSelfSenderIds, setKnownSelfSenderIds] = useState([]);
+    const [knownSelfSenderIds, setKnownSelfSenderIds] = useState(() => readStoredChatSelfSenderIds());
     const bottomAnchorRef = useRef(null);
     const lastReadMessageIdRef = useRef("");
 
@@ -176,7 +181,7 @@ function MessagesPage() {
         }
 
         setKnownSelfSenderIds((previousIds) =>
-            previousIds.includes(senderId) ? previousIds : [...previousIds, senderId]
+            rememberStoredChatSelfSenderIds(previousIds, [senderId])
         );
     }
 

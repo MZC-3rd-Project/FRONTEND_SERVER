@@ -7,6 +7,7 @@ import {
 } from "@/domains/client/commerce/lib/commerceViewUtils";
 
 const CHAT_WEBSOCKET_PATH = "/ws/chat";
+const CHAT_SELF_SENDER_IDS_STORAGE_KEY = "chat:self-sender-ids";
 
 export const CHAT_HEARTBEAT_INTERVAL_MS = 25_000;
 export const CHAT_HEARTBEAT_TIMEOUT_MS = 60_000;
@@ -20,6 +21,79 @@ export function buildChatWebSocketUrl(baseOrigin) {
     const url = new URL(CHAT_WEBSOCKET_PATH, origin);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     return url.toString();
+}
+
+function getChatStorage() {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    try {
+        return window.sessionStorage;
+    } catch {
+        return null;
+    }
+}
+
+export function readStoredChatSelfSenderIds() {
+    const storage = getChatStorage();
+
+    if (!storage) {
+        return [];
+    }
+
+    try {
+        const raw = storage.getItem(CHAT_SELF_SENDER_IDS_STORAGE_KEY);
+
+        if (!raw) {
+            return [];
+        }
+
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map((value) => toId(value)).filter(Boolean) : [];
+    } catch {
+        return [];
+    }
+}
+
+export function mergeChatSelfSenderIds(previousIds = [], nextIds = []) {
+    return [...new Set([...previousIds, ...nextIds].map((value) => toId(value)).filter(Boolean))];
+}
+
+export function persistChatSelfSenderIds(senderIds = []) {
+    const storage = getChatStorage();
+
+    if (!storage) {
+        return senderIds;
+    }
+
+    try {
+        storage.setItem(
+            CHAT_SELF_SENDER_IDS_STORAGE_KEY,
+            JSON.stringify(mergeChatSelfSenderIds([], senderIds))
+        );
+    } catch {
+        return senderIds;
+    }
+
+    return senderIds;
+}
+
+export function rememberStoredChatSelfSenderIds(previousIds = [], nextIds = []) {
+    const mergedIds = mergeChatSelfSenderIds(previousIds, nextIds);
+    persistChatSelfSenderIds(mergedIds);
+    return mergedIds;
+}
+
+export function resolveSelfSenderIdsFromParticipants(participants) {
+    if (!Array.isArray(participants)) {
+        return [];
+    }
+
+    return participants
+        .filter((participant) => participant?.role === "PARTICIPANT")
+        .map((participant) => toId(participant?.userId))
+        .filter(Boolean);
 }
 
 export function createClientMessageId() {

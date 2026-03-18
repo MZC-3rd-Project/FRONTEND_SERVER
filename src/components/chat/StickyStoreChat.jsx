@@ -8,7 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { isNumericId } from "@/common/utils/id";
 import { useChatRoomSocket } from "@/domains/client/chat/hooks/useChatRoomSocket";
-import { createClientMessageId, flattenChatMessagePages } from "@/domains/client/chat/lib/chatUtils";
+import {
+    createClientMessageId,
+    flattenChatMessagePages,
+    readStoredChatSelfSenderIds,
+    rememberStoredChatSelfSenderIds,
+    resolveSelfSenderIdsFromParticipants,
+} from "@/domains/client/chat/lib/chatUtils";
 import {
     chatKeys,
     useCreateInquiryRoomMutation,
@@ -130,7 +136,7 @@ function StickyStoreChat({
         roomId: "",
         messages: [],
     });
-    const [knownSelfSenderIds, setKnownSelfSenderIds] = useState([]);
+    const [knownSelfSenderIds, setKnownSelfSenderIds] = useState(() => readStoredChatSelfSenderIds());
     const [runtimeError, setRuntimeError] = useState("");
 
     const createInquiryRoomMutation = useCreateInquiryRoomMutation();
@@ -159,19 +165,29 @@ function StickyStoreChat({
         }
 
         setKnownSelfSenderIds((previousIds) =>
-            previousIds.includes(senderId) ? previousIds : [...previousIds, senderId]
+            rememberStoredChatSelfSenderIds(previousIds, [senderId])
         );
     }
 
-    function updateLiveMessages(updater) {
+    function rememberSelfSenderIds(senderIds) {
+        if (!Array.isArray(senderIds) || senderIds.length === 0) {
+            return;
+        }
+
+        setKnownSelfSenderIds((previousIds) =>
+            rememberStoredChatSelfSenderIds(previousIds, senderIds)
+        );
+    }
+
+    function updateLiveMessages(updater, targetRoomId = roomId) {
         setLiveMessageState((previousState) => {
             const baseMessages =
-                previousState.roomId === roomId ? previousState.messages : [];
+                previousState.roomId === targetRoomId ? previousState.messages : [];
             const nextMessages =
                 typeof updater === "function" ? updater(baseMessages) : updater;
 
             return {
-                roomId,
+                roomId: targetRoomId,
                 messages: nextMessages,
             };
         });
@@ -179,6 +195,7 @@ function StickyStoreChat({
 
     function setResolvedRoom(nextRoom) {
         const nextRoomId = String(nextRoom?.roomId ?? "");
+        rememberSelfSenderIds(resolveSelfSenderIdsFromParticipants(nextRoom?.participants));
 
         setActiveRoom(nextRoom ?? null);
 
@@ -361,7 +378,7 @@ function StickyStoreChat({
                     fromSelf: true,
                     deliveryState: "sent",
                 })
-            );
+            , resolvedRoom.roomId);
             await queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
         } catch (error) {
             updateLiveMessages((previousMessages) =>
@@ -373,7 +390,7 @@ function StickyStoreChat({
                         }
                         : message
                 )
-            );
+            , resolvedRoom.roomId);
             setRuntimeError(error?.message ?? "메시지를 전송하지 못했습니다.");
         }
     }
