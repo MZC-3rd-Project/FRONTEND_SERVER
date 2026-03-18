@@ -126,7 +126,10 @@ function StickyStoreChat({
     const bottomAnchorRef = useRef(null);
     const [draft, setDraft] = useState("");
     const [activeRoom, setActiveRoom] = useState(null);
-    const [liveMessages, setLiveMessages] = useState([]);
+    const [liveMessageState, setLiveMessageState] = useState({
+        roomId: "",
+        messages: [],
+    });
     const [knownSelfSenderIds, setKnownSelfSenderIds] = useState([]);
     const [runtimeError, setRuntimeError] = useState("");
 
@@ -134,6 +137,10 @@ function StickyStoreChat({
     const sendMessageMutation = useSendChatMessageMutation();
     const canStartInquiry = isNumericId(itemId);
     const roomId = activeRoom?.roomId ?? "";
+    const liveMessages = useMemo(
+        () => (liveMessageState.roomId === roomId ? liveMessageState.messages : []),
+        [liveMessageState.messages, liveMessageState.roomId, roomId]
+    );
     const ownSenderIdSet = useMemo(() => new Set(knownSelfSenderIds), [knownSelfSenderIds]);
 
     const messagesQuery = useInfiniteChatMessagesQuery(roomId, 50, ownSenderIdSet);
@@ -157,9 +164,30 @@ function StickyStoreChat({
     }
 
     function updateLiveMessages(updater) {
-        setLiveMessages((previousMessages) =>
-            typeof updater === "function" ? updater(previousMessages) : updater
-        );
+        setLiveMessageState((previousState) => {
+            const baseMessages =
+                previousState.roomId === roomId ? previousState.messages : [];
+            const nextMessages =
+                typeof updater === "function" ? updater(baseMessages) : updater;
+
+            return {
+                roomId,
+                messages: nextMessages,
+            };
+        });
+    }
+
+    function setResolvedRoom(nextRoom) {
+        const nextRoomId = String(nextRoom?.roomId ?? "");
+
+        setActiveRoom(nextRoom ?? null);
+
+        if (nextRoomId !== roomId) {
+            setLiveMessageState({
+                roomId: nextRoomId,
+                messages: [],
+            });
+        }
     }
 
     const chatSocket = useChatRoomSocket({
@@ -207,19 +235,31 @@ function StickyStoreChat({
         bottomAnchorRef.current?.scrollIntoView({ block: "end" });
     }, [mergedMessages.length, roomId]);
 
-    useEffect(() => {
-        setLiveMessages([]);
-        setRuntimeError("");
-    }, [roomId]);
-
     async function ensureRoom() {
         if (activeRoom?.roomId) {
             return activeRoom;
         }
 
         const room = await createInquiryRoomMutation.mutateAsync(itemId);
-        setActiveRoom(room);
+        setResolvedRoom(room);
         await queryClient.invalidateQueries({ queryKey: chatKeys.rooms() });
+        return room;
+    }
+
+    async function bootstrapConversation({ forceRefresh = false } = {}) {
+        if (!canStartInquiry) {
+            return null;
+        }
+
+        setRuntimeError("");
+
+        const hadActiveRoom = Boolean(activeRoom?.roomId);
+        const room = await ensureRoom();
+
+        if (forceRefresh && hadActiveRoom && room?.roomId) {
+            await messagesQuery.refetch();
+        }
+
         return room;
     }
 
@@ -229,15 +269,21 @@ function StickyStoreChat({
         }
 
         try {
-            const room = await ensureRoom();
-
-            if (room?.roomId) {
-                await messagesQuery.refetch();
-            }
-
-            setRuntimeError("");
+            await bootstrapConversation({ forceRefresh: true });
         } catch (error) {
             setRuntimeError(error?.message ?? "대화방을 불러오지 못했습니다.");
+        }
+    }
+
+    async function handleFocusComposer() {
+        if (!canStartInquiry || activeRoom?.roomId || createInquiryRoomMutation.isPending) {
+            return;
+        }
+
+        try {
+            await bootstrapConversation();
+        } catch (error) {
+            setRuntimeError(error?.message ?? "대화방을 준비하지 못했습니다.");
         }
     }
 
@@ -254,7 +300,7 @@ function StickyStoreChat({
 
         try {
             if (!resolvedRoom?.roomId) {
-                resolvedRoom = await ensureRoom();
+                resolvedRoom = await bootstrapConversation();
             }
         } catch (error) {
             setRuntimeError(error?.message ?? "문의방을 만들지 못했습니다.");
@@ -281,7 +327,15 @@ function StickyStoreChat({
             deliveryState: "sending",
         };
 
-        updateLiveMessages((previousMessages) => upsertMessage(previousMessages, optimisticMessage));
+        setLiveMessageState((previousState) => {
+            const baseMessages =
+                previousState.roomId === resolvedRoom.roomId ? previousState.messages : [];
+
+            return {
+                roomId: resolvedRoom.roomId,
+                messages: upsertMessage(baseMessages, optimisticMessage),
+            };
+        });
         setDraft("");
 
         try {
@@ -365,7 +419,7 @@ function StickyStoreChat({
                             Conversation
                         </p>
                         <div className="flex items-center gap-2">
-                            {messagesQuery.hasNextPage ? (
+                            {roomId && messagesQuery.hasNextPage ? (
                                 <Button
                                     type="button"
                                     size="sm"
@@ -377,23 +431,25 @@ function StickyStoreChat({
                                     {messagesQuery.isFetchingNextPage ? "불러오는 중" : "이전 메시지"}
                                 </Button>
                             ) : null}
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="rounded-full"
-                                onClick={() => {
-                                    void handleRefreshConversation();
-                                }}
-                                disabled={!canStartInquiry || createInquiryRoomMutation.isPending || messagesQuery.isFetching}
-                            >
-                                <RefreshCw
-                                    className={`h-3.5 w-3.5 ${
-                                        createInquiryRoomMutation.isPending || messagesQuery.isFetching ? "animate-spin" : ""
-                                    }`}
-                                />
-                                대화 불러오기
-                            </Button>
+                            {roomId ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="rounded-full"
+                                    onClick={() => {
+                                        void handleRefreshConversation();
+                                    }}
+                                    disabled={!canStartInquiry || createInquiryRoomMutation.isPending || messagesQuery.isFetching}
+                                >
+                                    <RefreshCw
+                                        className={`h-3.5 w-3.5 ${
+                                            createInquiryRoomMutation.isPending || messagesQuery.isFetching ? "animate-spin" : ""
+                                        }`}
+                                    />
+                                    새로고침
+                                </Button>
+                            ) : null}
                         </div>
                     </div>
 
@@ -412,7 +468,7 @@ function StickyStoreChat({
                                 <div className="space-y-2">
                                     <p className="text-sm font-semibold text-foreground">이 카드 안에서 바로 문의할 수 있습니다</p>
                                     <p className="max-w-[240px] text-xs leading-relaxed text-muted-foreground">
-                                        메시지를 보내면 기존 문의방을 찾고, 없으면 새로 만든 뒤 바로 대화를 시작합니다.
+                                        입력창에 커서를 두거나 바로 메시지를 보내면 기존 문의방을 찾고, 없으면 새로 만든 뒤 대화를 이어갑니다.
                                     </p>
                                 </div>
                             </div>
@@ -433,6 +489,9 @@ function StickyStoreChat({
                     <Textarea
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
+                        onFocus={() => {
+                            void handleFocusComposer();
+                        }}
                         placeholder={canStartInquiry ? "스토어에 문의 메시지를 입력하세요" : "현재 화면에서는 채팅을 시작할 수 없습니다"}
                         className="min-h-[96px] resize-none border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0"
                         disabled={!canStartInquiry || createInquiryRoomMutation.isPending || sendMessageMutation.isPending}
