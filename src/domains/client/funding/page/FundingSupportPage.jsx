@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { CreditCard, HeartHandshake, RefreshCw } from "lucide-react";
+import { AlertCircle, CreditCard, HeartHandshake, RefreshCw, ShoppingCart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
+import { buildFundingRewardCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
+import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
 import { useFundingCampaignDetailQuery } from "@/domains/client/funding/query/useFundingQueries";
 import { paymentMethods } from "@/domains/client/order/mock/orderData.js";
 
@@ -13,11 +15,13 @@ function FundingSupportPage() {
     const { campaignId } = useParams();
     const navigate = useNavigate();
     const { data: campaign, isLoading, isError, error, refetch, isFetching } = useFundingCampaignDetailQuery(campaignId);
+    const addCartItemMutation = useAddCartItemMutation();
 
     const [supporterName, setSupporterName] = useState("김도윤");
     const [supporterEmail, setSupporterEmail] = useState("donmoa.user@example.com");
     const [selectedRewardId, setSelectedRewardId] = useState("");
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentMethods[0]?.id ?? "");
+    const [cartFeedback, setCartFeedback] = useState(null);
 
     const activeRewardId = useMemo(() => {
         if (!campaign?.rewardOptions?.length) {
@@ -98,7 +102,32 @@ function FundingSupportPage() {
         }
 
         const orderId = `FD${Date.now()}`;
-        navigate(`/funding/support/complete?campaignId=${campaign.id}&orderId=${orderId}`);
+        navigate(
+            `/funding/support/complete?campaignId=${encodeURIComponent(String(campaign.id ?? ""))}&orderId=${encodeURIComponent(
+                String(orderId)
+            )}`
+        );
+    };
+
+    const handleAddToCart = async () => {
+        if (!campaign || !selectedReward) {
+            return;
+        }
+
+        setCartFeedback(null);
+
+        try {
+            await addCartItemMutation.mutateAsync(buildFundingRewardCartItemInput(campaign, selectedReward));
+            setCartFeedback({
+                type: "success",
+                message: "선택한 리워드를 장바구니에 담았습니다.",
+            });
+        } catch (mutationError) {
+            setCartFeedback({
+                type: "error",
+                message: mutationError?.message ?? "장바구니 담기에 실패했습니다.",
+            });
+        }
     };
 
     return (
@@ -232,13 +261,36 @@ function FundingSupportPage() {
 
                         <Button
                             type="button"
+                            onClick={handleAddToCart}
+                            disabled={!canSubmit || addCartItemMutation.isPending}
+                            className="mt-2 h-10 w-full rounded-full text-sm font-semibold"
+                        >
+                            <ShoppingCart className="h-4 w-4" />
+                            {addCartItemMutation.isPending ? "담는 중..." : "장바구니 담기"}
+                        </Button>
+                        <Button asChild variant="outline" className="h-10 w-full rounded-full text-sm font-semibold">
+                            <Link to="/cart">장바구니 보기</Link>
+                        </Button>
+                        <Button
+                            type="button"
                             onClick={submitSupport}
                             disabled={!canSubmit}
-                            className="mt-2 h-10 w-full rounded-full text-sm font-semibold"
+                            className="h-10 w-full rounded-full text-sm font-semibold"
                         >
                             <HeartHandshake className="h-4 w-4" />
                             {canSubmit ? "후원 결제 진행" : "후원 준비 중"}
                         </Button>
+                        {cartFeedback ? (
+                            <Alert variant={cartFeedback.type === "error" ? "destructive" : "default"}>
+                                {cartFeedback.type === "error" ? (
+                                    <AlertCircle className="h-4 w-4" />
+                                ) : (
+                                    <ShoppingCart className="h-4 w-4" />
+                                )}
+                                <AlertTitle>{cartFeedback.type === "error" ? "장바구니 담기 실패" : "장바구니 담기 완료"}</AlertTitle>
+                                <AlertDescription>{cartFeedback.message}</AlertDescription>
+                            </Alert>
+                        ) : null}
                         <Button asChild variant="ghost" className="h-9 w-full rounded-full">
                             <Link to={`/funding/${campaign.id}`}>상세로 돌아가기</Link>
                         </Button>

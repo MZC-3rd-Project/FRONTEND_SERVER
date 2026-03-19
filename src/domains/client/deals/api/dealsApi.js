@@ -1,5 +1,6 @@
 import { bffAxiosInstance } from "@/common/api/apiInstacne";
 import { normalizeApiError, unwrapApiResponseBody } from "@/common/api/responseUtils";
+import { encodeIdPathSegment } from "@/common/utils/id";
 
 export async function fetchHotDeals(params = {}) {
     try {
@@ -16,7 +17,7 @@ export async function fetchHotDeals(params = {}) {
 export async function fetchHotDealDetail({ hotDealId, itemId, itemType = "PRODUCT" }) {
     if (itemId) {
         try {
-            const response = await bffAxiosInstance.get(`/bff/v1/catalog/items/${itemId}/detail`, {
+            const response = await bffAxiosInstance.get(`/bff/v1/catalog/items/${encodeIdPathSegment(itemId)}/detail`, {
                 params: {
                     itemType,
                     salesChannel: "HOT_DEAL",
@@ -33,7 +34,7 @@ export async function fetchHotDealDetail({ hotDealId, itemId, itemType = "PRODUC
     }
 
     try {
-        const response = await bffAxiosInstance.get(`/bff/v1/hot-deals/${hotDealId}`);
+        const response = await bffAxiosInstance.get(`/bff/v1/hot-deals/${encodeIdPathSegment(hotDealId)}`);
         return unwrapApiResponseBody(response, "핫딜 상세를 불러오지 못했습니다.");
     } catch (error) {
         throw normalizeApiError(error, "핫딜 상세 조회에 실패했습니다.");

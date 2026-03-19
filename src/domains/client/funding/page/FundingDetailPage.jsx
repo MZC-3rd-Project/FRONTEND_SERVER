@@ -317,7 +317,10 @@ function FundingDetailPage() {
                     </CardContent>
                 </Card>
                 <div className="mt-4">
-                    <StickyStoreChat storeName={store.name} />
+                    <StickyStoreChat
+                        storeName={store.name}
+                        itemId={campaign.itemId}
+                    />
                 </div>
             </aside>
         </div>

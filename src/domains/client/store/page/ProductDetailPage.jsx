@@ -1,21 +1,68 @@
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { Calendar, MapPin, Package, Star, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
+import { STORE_IMAGE_PLACEHOLDER } from "@/domains/client/store/lib/storeMappers";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 
 function ratingText(rating) {
     return "★".repeat(rating) + "☆".repeat(5 - rating);
 }
 
+function buildSummaryFallbackResult({ storeId, productType, productId, locationState }) {
+    const itemSummary = locationState?.itemSummary;
+
+    if (!itemSummary || String(itemSummary.id ?? "") !== String(productId ?? "")) {
+        return null;
+    }
+
+    const storeSummary = locationState?.store ?? {};
+    const isTicket = productType === "ticket";
+
+    return {
+        productType: isTicket ? "ticket" : "stock",
+        isSummaryFallback: true,
+        store: {
+            id: storeId,
+            name: storeSummary.name ?? locationState?.storeName ?? "스토어 정보 준비 중",
+            tagline: storeSummary.description ?? "스토어 소개 준비 중",
+            rating: 0,
+            reviewCount: 0,
+            soldSummary: [],
+        },
+        product: {
+            id: itemSummary.id,
+            name: itemSummary.title ?? "상품 정보 준비 중",
+            thumbnail: itemSummary.thumbnailUrl || STORE_IMAGE_PLACEHOLDER,
+            price: itemSummary.priceText || formatPrice(itemSummary.price),
+            stock: null,
+            status: itemSummary.status ?? "상태 미정",
+            category: itemSummary.itemTypeLabel ?? itemSummary.itemType ?? "상품",
+            reviews: [],
+            tiers: [],
+            eventDate: "일정 정보 준비 중",
+            venue: "장소 정보 준비 중",
+        },
+    };
+}
+
 function ProductDetailPage() {
     const { storeId, productType, productId } = useParams();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
-    const result = findStoreProduct(storeId, productType, productId);
+    const result =
+        findStoreProduct(storeId, productType, productId) ??
+        buildSummaryFallbackResult({
+            storeId,
+            productType,
+            productId,
+            locationState: location.state,
+        });
+    const isSummaryFallback = result?.isSummaryFallback === true;
     const isTicket = result?.productType === "ticket";
     const product = result?.product;
     const tiers = product?.tiers ?? [];
@@ -67,7 +114,9 @@ function ProductDetailPage() {
     const ticketQuery = isTicket && selectedTier ? `&ticketGrade=${encodeURIComponent(selectedTier.grade)}` : "";
     const quantityQuery = isTicket && safeTicketQuantity > 0 ? `&ticketQuantity=${safeTicketQuantity}` : "";
     const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}${ticketQuery}${quantityQuery}`;
-    const detailSections = isTicket
+    const detailSections = isSummaryFallback
+        ? []
+        : isTicket
         ? [
             {
                 title: "현장 몰입도를 높이는 좌석/동선 설계",
@@ -147,14 +196,19 @@ function ProductDetailPage() {
                             ) : (
                                 <div className="space-y-1 text-sm text-zinc-600">
                                     <p className="font-semibold text-zinc-900">{product.price}</p>
-                                    <p>
-                                        재고 {product.stock}개 · {product.status}
-                                    </p>
+                                    <p>{product.stock !== null ? `재고 ${product.stock}개 · ${product.status}` : product.status}</p>
+                                    {isSummaryFallback ? (
+                                        <p className="text-xs font-semibold text-zinc-700">스토어 요약 정보 기준으로 표시 중입니다.</p>
+                                    ) : null}
                                 </div>
                             )}
 
                             <div className="flex gap-2 pt-1">
-                                {isTicket ? (
+                                {isSummaryFallback ? (
+                                    <Button type="button" disabled className="rounded-full px-5">
+                                        상세 구매 정보 준비 중
+                                    </Button>
+                                ) : isTicket ? (
                                     <Button
                                         asChild
                                         disabled={!selectedTier || selectedTier.remaining <= 0 || safeTicketQuantity <= 0}
@@ -175,7 +229,7 @@ function ProductDetailPage() {
                     </div>
                 </section>
 
-                {isTicket && (
+                {isTicket && !isSummaryFallback && (
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Ticket className="h-5 w-5 text-cyan-700" />
@@ -284,6 +338,16 @@ function ProductDetailPage() {
                     </section>
                 )}
 
+                {isTicket && isSummaryFallback && (
+                    <section>
+                        <Card className="border-zinc-200/80 bg-white/95">
+                            <CardContent className="pt-5 text-sm text-zinc-600">
+                                공연 상세 정보는 현재 스토어 요약 응답에 포함되지 않아 간략 정보만 표시 중입니다.
+                            </CardContent>
+                        </Card>
+                    </section>
+                )}
+
                 <section className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
                     <Card className="border-zinc-200/80 bg-white/95">
                         <CardHeader className="pb-2">
@@ -292,17 +356,23 @@ function ProductDetailPage() {
                         <CardContent className="space-y-2 text-sm text-zinc-600">
                             <p className="text-base font-semibold text-zinc-900">{store.name}</p>
                             <p>{store.tagline}</p>
-                            <p className="inline-flex items-center gap-1 text-xs">
-                                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                                평점 {store.rating} / 리뷰 {store.reviewCount.toLocaleString()}개
-                            </p>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                {store.soldSummary.slice(0, 3).map((summary) => (
-                                    <span key={summary} className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
-                                        {summary}
-                                    </span>
-                                ))}
-                            </div>
+                            {store.reviewCount > 0 ? (
+                                <p className="inline-flex items-center gap-1 text-xs">
+                                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                                    평점 {store.rating} / 리뷰 {store.reviewCount.toLocaleString()}개
+                                </p>
+                            ) : (
+                                <p className="text-xs text-zinc-500">스토어 요약 정보 기준으로 연결된 상세 화면입니다.</p>
+                            )}
+                            {store.soldSummary.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {store.soldSummary.slice(0, 3).map((summary) => (
+                                        <span key={summary} className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
+                                            {summary}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
                         </CardContent>
                     </Card>
 
@@ -330,30 +400,32 @@ function ProductDetailPage() {
                     </Card>
                 </section>
 
-                <section className="space-y-4">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Product Story</p>
-                        <h3 className="mt-1 text-xl font-bold text-zinc-900">상세 소개</h3>
-                    </div>
-                    {detailSections.map((section) => (
-                        <Card key={section.title} className="overflow-hidden border-zinc-200/80 bg-white/95">
-                            <img src={section.image} alt={section.title} className="h-60 w-full object-cover sm:h-72" />
-                            <CardContent className="space-y-3 pt-5">
-                                <h4 className="text-lg font-bold text-zinc-900">{section.title}</h4>
-                                <p className="text-sm text-zinc-600">{section.description}</p>
-                                <div className="flex flex-wrap gap-2">
-                                    {section.highlights.map((highlight) => (
-                                        <span key={highlight} className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
-                                            {highlight}
-                                        </span>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </section>
+                {detailSections.length > 0 ? (
+                    <section className="space-y-4">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">Product Story</p>
+                            <h3 className="mt-1 text-xl font-bold text-zinc-900">상세 소개</h3>
+                        </div>
+                        {detailSections.map((section) => (
+                            <Card key={section.title} className="overflow-hidden border-zinc-200/80 bg-white/95">
+                                <img src={section.image} alt={section.title} className="h-60 w-full object-cover sm:h-72" />
+                                <CardContent className="space-y-3 pt-5">
+                                    <h4 className="text-lg font-bold text-zinc-900">{section.title}</h4>
+                                    <p className="text-sm text-zinc-600">{section.description}</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {section.highlights.map((highlight) => (
+                                            <span key={highlight} className="rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+                                                {highlight}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </section>
+                ) : null}
 
-                {!isTicket && (
+                {!isTicket && !isSummaryFallback && (
                     <section className="space-y-4">
                         <div className="flex items-center gap-2">
                             <Package className="h-5 w-5 text-violet-700" />
@@ -376,21 +448,29 @@ function ProductDetailPage() {
                             <CardTitle className="text-base text-zinc-900">상품 리뷰</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            {product.reviews.map((review) => (
-                                <div key={`${product.id}-${review.user}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
-                                    <p className="font-semibold text-zinc-900">
-                                        {review.user} <span className="ml-1 text-amber-500">{ratingText(review.rating)}</span>
-                                    </p>
-                                    <p className="mt-1 text-zinc-600">{review.comment}</p>
-                                </div>
-                            ))}
+                            {product.reviews.length > 0 ? (
+                                product.reviews.map((review) => (
+                                    <div key={`${product.id}-${review.user}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
+                                        <p className="font-semibold text-zinc-900">
+                                            {review.user} <span className="ml-1 text-amber-500">{ratingText(review.rating)}</span>
+                                        </p>
+                                        <p className="mt-1 text-zinc-600">{review.comment}</p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-zinc-500">리뷰 정보가 아직 준비되지 않았습니다.</p>
+                            )}
                         </CardContent>
                     </Card>
                 </section>
             </div>
 
             <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
-                <StickyStoreChat storeName={store.name} />
+                <StickyStoreChat
+                    storeName={store.name}
+                    itemId={product.id}
+                    disabledReason="현재 스토어 상품 상세는 mock 데이터 기반이라 실채팅 문의방을 열 수 없습니다."
+                />
             </aside>
         </div>
     );

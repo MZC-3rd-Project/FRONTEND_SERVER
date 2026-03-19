@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { BadgeCheck, CreditCard, MapPin, ShieldCheck, TicketPercent } from "lucide-react";
+import { AlertCircle, BadgeCheck, CreditCard, MapPin, RefreshCw, ShieldCheck, TicketPercent } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cartItems, coupons, paymentMethods, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
-import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
+import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
+import { coupons, paymentMethods, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
+import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 
 function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     if (!selectedCoupon) return 0;
@@ -70,6 +72,29 @@ function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, t
     };
 }
 
+function mapCartItemToCheckoutItem(item) {
+    return {
+        id: item.lineKey,
+        kind: item.channelTypeLabel,
+        storeId: item.storeId,
+        storeName: item.storeName,
+        name: item.itemTitle,
+        option: item.salesStatus ? `${item.channelTypeLabel} · ${item.salesStatus}` : item.channelTypeLabel,
+        thumbnail: item.thumbnailUrl,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+    };
+}
+
+function CheckoutPageSkeleton() {
+    return (
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card className="h-72 animate-pulse bg-card" />
+            <Card className="h-72 animate-pulse bg-card" />
+        </div>
+    );
+}
+
 function CheckoutPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -79,6 +104,16 @@ function CheckoutPage() {
     const directProductId = searchParams.get("productId") ?? "";
     const directTicketGrade = searchParams.get("ticketGrade") ?? "";
     const directTicketQuantity = searchParams.get("ticketQuantity") ?? "1";
+    const {
+        data: cart,
+        isLoading: isCartLoading,
+        isError: isCartError,
+        error: cartError,
+        refetch: refetchCart,
+        isFetching: isCartFetching,
+    } = useCartQuery({
+        enabled: !directMode,
+    });
 
     const directItem = useMemo(
         () =>
@@ -93,7 +128,14 @@ function CheckoutPage() {
                 : null,
         [directMode, directProductId, directProductType, directStoreId, directTicketGrade, directTicketQuantity]
     );
-    const checkoutItems = useMemo(() => (directMode ? (directItem ? [directItem] : []) : cartItems), [directMode, directItem]);
+    const cartCheckoutItems = useMemo(
+        () => (directMode ? [] : (cart?.selectedItems ?? []).map(mapCartItemToCheckoutItem)),
+        [cart?.selectedItems, directMode]
+    );
+    const checkoutItems = useMemo(
+        () => (directMode ? (directItem ? [directItem] : []) : cartCheckoutItems),
+        [cartCheckoutItems, directItem, directMode]
+    );
     const directBackLink = useMemo(() => {
         if (!directItem) return "/cart";
 
@@ -140,6 +182,38 @@ function CheckoutPage() {
         navigate(`/order/fail?orderId=${orderId}&code=PAY_PROCESS_ERROR`);
     };
 
+    if (!directMode && isCartLoading) {
+        return <CheckoutPageSkeleton />;
+    }
+
+    if (!directMode && isCartError) {
+        return (
+            <div className="grid min-h-[60vh] place-items-center">
+                <Card className="w-full max-w-lg">
+                    <CardHeader>
+                        <CardTitle>장바구니 주문서를 준비하지 못했습니다</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>장바구니 조회 실패</AlertTitle>
+                            <AlertDescription>{cartError?.message ?? "잠시 후 다시 시도해 주세요."}</AlertDescription>
+                        </Alert>
+                        <div className="flex flex-wrap gap-2">
+                            <Button type="button" onClick={() => refetchCart()} disabled={isCartFetching}>
+                                <RefreshCw className={`h-4 w-4 ${isCartFetching ? "animate-spin" : ""}`} />
+                                다시 시도
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link to="/cart">장바구니로 돌아가기</Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-5">
@@ -149,11 +223,15 @@ function CheckoutPage() {
                         {directItem ? "바로 구매 주문서" : "주문서 / 결제"}
                     </h2>
                     <p className="mt-2 text-sm text-muted-foreground">
-                        결제 모듈은 토스페이먼츠 기준으로 설계되어 있고, 현재는 프론트 데모 플로우입니다.
+                        결제 모듈은 토스페이먼츠 기준으로 설계되어 있고, 현재는 결제 성공/실패 화면만 프론트 데모로 연결되어 있습니다.
                     </p>
-                    {directItem && (
+                    {directItem ? (
                         <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
                             선택 상품: <span className="font-semibold">{directItem.name}</span> {directItem.quantity}건을 결제합니다.
+                        </p>
+                    ) : (
+                        <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
+                            장바구니에서 선택한 상품 <span className="font-semibold">{cart?.selectedItemCount ?? checkoutItems.length}건</span>을 결제합니다.
                         </p>
                     )}
                 </section>
@@ -240,7 +318,13 @@ function CheckoutPage() {
                         {checkoutItems.length > 0 ? (
                             checkoutItems.map((item) => (
                                 <div key={item.id} className="flex gap-3 rounded-xl border border-border bg-muted p-3">
-                                    <img src={item.thumbnail} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                                    {item.thumbnail ? (
+                                        <img src={item.thumbnail} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                                    ) : (
+                                        <div className="grid h-16 w-16 place-items-center rounded-lg bg-card text-xs text-muted-foreground">
+                                            이미지 없음
+                                        </div>
+                                    )}
                                     <div className="min-w-0 flex-1">
                                         <p className="text-xs text-muted-foreground">{item.storeName}</p>
                                         <p className="line-clamp-1 text-sm font-semibold text-foreground">{item.name}</p>
@@ -256,7 +340,9 @@ function CheckoutPage() {
                             ))
                         ) : (
                             <div className="rounded-xl border border-border bg-muted p-3 text-xs text-muted-foreground">
-                                직접 구매 정보가 유효하지 않습니다. 상품 상세에서 좌석/수량을 다시 선택해 주세요.
+                                {directMode
+                                    ? "직접 구매 정보가 유효하지 않습니다. 상품 상세에서 좌석/수량을 다시 선택해 주세요."
+                                    : "장바구니에서 선택된 상품이 없습니다. 결제할 상품을 다시 선택해 주세요."}
                             </div>
                         )}
                     </CardContent>
@@ -377,13 +463,27 @@ function CheckoutPage() {
                     <CardContent className="p-4 text-xs text-foreground">
                         <p className="inline-flex items-center gap-1 font-semibold">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            TossPayments 연동 예정
+                            Checkout 연결 상태
                         </p>
                         <p className="mt-1">
-                            `clientKey`, 결제 위젯 호출, 서버 승인 API, 웹훅 검증 단계만 백엔드 준비되면 바로 연결할 수 있게 구조를 분리해 두었습니다.
+                            장바구니 선택 상품은 실제 API 데이터로 렌더링 중입니다. 결제 승인과 주문 submit은 아직 프론트 데모 플로우입니다.
                         </p>
                     </CardContent>
                 </Card>
+
+                {!directMode ? (
+                    <Card className="border-emerald-200/60 bg-emerald-50/70 dark:border-emerald-300/20 dark:bg-emerald-400/10">
+                        <CardContent className="p-4 text-xs text-emerald-900 dark:text-emerald-100">
+                            <p className="inline-flex items-center gap-1 font-semibold">
+                                <BadgeCheck className="h-3.5 w-3.5" />
+                                Cart 연동 완료
+                            </p>
+                            <p className="mt-1">
+                                결제 대상은 장바구니에서 체크된 상품만 반영됩니다. 선택 상태나 수량을 바꾸려면 장바구니로 돌아가서 수정하세요.
+                            </p>
+                        </CardContent>
+                    </Card>
+                ) : null}
             </div>
         </div>
     );

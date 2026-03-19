@@ -17,6 +17,7 @@ import {
 import StickySearchPanel from "@/components/search/StickySearchPanel.jsx";
 import { FUNDING_IMAGE_PLACEHOLDER } from "@/domains/client/funding/lib/fundingMappers";
 import { useFundingCampaignsQuery } from "@/domains/client/funding/query/useFundingQueries";
+import { encodeIdPathSegment } from "@/common/utils/id";
 
 function getStatusVariant(statusCode) {
     if (statusCode === "ACTIVE") return "default";
@@ -186,7 +187,7 @@ export default function FundingListPage() {
                                             {campaign.supporterCount.toLocaleString()}명 참여
                                         </p>
                                         <Button asChild size="sm" className="rounded-full px-4">
-                                            <Link to={`/funding/${campaign.id}`}>
+                                            <Link to={`/funding/${encodeIdPathSegment(campaign.id)}`}>
                                                 자세히
                                                 <ArrowRight className="h-3.5 w-3.5" />
                                             </Link>

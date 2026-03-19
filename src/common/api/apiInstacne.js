@@ -4,6 +4,35 @@ import { createAuthClient } from "./createAuthClient.js";
 
 const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8071/api";
 const isDev = import.meta.env.DEV;
+let authRedirectInProgress = false;
+
+function quoteLargeIntegerLiterals(raw) {
+    return raw
+        .replace(/(:\s*)(-?\d{16,})(?=\s*[,}\]])/g, '$1"$2"')
+        .replace(/((?:\[|,)\s*)(-?\d{16,})(?=\s*[,}\]])/g, '$1"$2"');
+}
+
+function parseResponseData(raw) {
+    if (typeof raw !== "string") {
+        return raw;
+    }
+
+    const trimmed = raw.trim();
+
+    if (!trimmed) {
+        return raw;
+    }
+
+    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) {
+        return raw;
+    }
+
+    try {
+        return JSON.parse(quoteLargeIntegerLiterals(trimmed));
+    } catch {
+        return raw;
+    }
+}
 
 function stripApiSuffix(url) {
     if (!url) {
@@ -72,9 +101,41 @@ function logApiResponseError(error) {
     return Promise.reject(error);
 }
 
+function redirectToLoginOnUnauthorized(error) {
+    const status = error?.response?.status;
+    const requestUrl = error?.config?.url || "";
+
+    if (status !== 401 || error?.config?.skipAuthRedirect === true) {
+        return Promise.reject(error);
+    }
+
+    if (typeof window === "undefined") {
+        return Promise.reject(error);
+    }
+
+    if (authRedirectInProgress) {
+        return Promise.reject(error);
+    }
+
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const isLoginPage = currentPath.startsWith("/auth/login");
+    const isGatewayLoginRequest = requestUrl.startsWith("/login");
+
+    if (isLoginPage || isGatewayLoginRequest) {
+        return Promise.reject(error);
+    }
+
+    authRedirectInProgress = true;
+    const redirect = encodeURIComponent(currentPath);
+    window.location.assign(`/auth/login?redirect=${redirect}`);
+
+    return Promise.reject(error);
+}
+
 function attachLoggingInterceptors(instance) {
     instance.interceptors.request.use(logApiRequest, (error) => Promise.reject(error));
     instance.interceptors.response.use(logApiResponse, logApiResponseError);
+    instance.interceptors.response.use((response) => response, redirectToLoginOnUnauthorized);
 }
 
 const sharedConfig = {

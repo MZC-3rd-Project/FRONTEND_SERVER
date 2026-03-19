@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { AlertCircle, PackageCheck, RefreshCw, Store } from "lucide-react";
+import { AlertCircle, PackageCheck, RefreshCw, ShoppingCart, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
+import { buildSaleCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
+import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
 import { SALES_IMAGE_PLACEHOLDER } from "@/domains/client/sales/lib/salesMappers";
 import { useNormalSaleDetailQuery } from "@/domains/client/sales/query/useSalesQueries";
 
@@ -53,6 +56,8 @@ function renderProductImage(imageUrl, title, className) {
 function SalesDetailPage() {
     const { saleId } = useParams();
     const { data: sale, isLoading, isError, error, refetch, isFetching } = useNormalSaleDetailQuery(saleId);
+    const addCartItemMutation = useAddCartItemMutation();
+    const [cartFeedback, setCartFeedback] = useState(null);
 
     if (isLoading) {
         return <SalesDetailSkeleton />;
@@ -113,6 +118,23 @@ function SalesDetailPage() {
     const reviews = sale.reviews;
     const canPurchase = sale.canPurchase;
 
+    const handleAddToCart = async () => {
+        setCartFeedback(null);
+
+        try {
+            await addCartItemMutation.mutateAsync(buildSaleCartItemInput(sale));
+            setCartFeedback({
+                type: "success",
+                message: "장바구니에 상품을 담았습니다.",
+            });
+        } catch (mutationError) {
+            setCartFeedback({
+                type: "error",
+                message: mutationError?.message ?? "장바구니 담기에 실패했습니다.",
+            });
+        }
+    };
+
     return (
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
             <div className="order-2 space-y-6 lg:order-1">
@@ -149,18 +171,40 @@ function SalesDetailPage() {
                                 </p>
                             </div>
 
-                            <div className="flex gap-2 pt-1">
+                            <div className="flex flex-wrap gap-2 pt-1">
                                 {canPurchase ? (
-                                    <Button asChild className="rounded-full px-5">
-                                        <Link to="/checkout">바로 구매</Link>
-                                    </Button>
+                                    <>
+                                        <Button
+                                            type="button"
+                                            onClick={handleAddToCart}
+                                            disabled={addCartItemMutation.isPending}
+                                            className="rounded-full px-5"
+                                        >
+                                            <ShoppingCart className="h-4 w-4" />
+                                            {addCartItemMutation.isPending ? "담는 중..." : "장바구니 담기"}
+                                        </Button>
+                                        <Button asChild variant="outline" className="rounded-full px-5">
+                                            <Link to="/cart">장바구니 보기</Link>
+                                        </Button>
+                                    </>
                                 ) : (
                                     <Button disabled className="rounded-full px-5">구매 불가</Button>
                                 )}
-                                <Button asChild variant="outline" className="rounded-full px-5">
+                                <Button asChild variant="ghost" className="rounded-full px-5">
                                     <Link to="/sales">목록으로</Link>
                                 </Button>
                             </div>
+                            {cartFeedback ? (
+                                <Alert variant={cartFeedback.type === "error" ? "destructive" : "default"}>
+                                    {cartFeedback.type === "error" ? (
+                                        <AlertCircle className="h-4 w-4" />
+                                    ) : (
+                                        <ShoppingCart className="h-4 w-4" />
+                                    )}
+                                    <AlertTitle>{cartFeedback.type === "error" ? "장바구니 담기 실패" : "장바구니 담기 완료"}</AlertTitle>
+                                    <AlertDescription>{cartFeedback.message}</AlertDescription>
+                                </Alert>
+                            ) : null}
                         </div>
                     </div>
                 </section>
@@ -258,7 +302,10 @@ function SalesDetailPage() {
                     </CardContent>
                 </Card>
                 <div className="mt-4">
-                    <StickyStoreChat storeName={store.name || "스토어"} />
+                    <StickyStoreChat
+                        storeName={store.name || "스토어"}
+                        itemId={sale.itemId}
+                    />
                 </div>
             </aside>
         </div>
