@@ -2,6 +2,7 @@ import axios from "axios";
 
 const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 const isDev = import.meta.env.DEV;
+let authRedirectInProgress = false;
 
 function quoteLargeIntegerLiterals(raw) {
     return raw
@@ -95,9 +96,41 @@ function logApiResponseError(error) {
     return Promise.reject(error);
 }
 
+function redirectToLoginOnUnauthorized(error) {
+    const status = error?.response?.status;
+    const requestUrl = error?.config?.url || "";
+
+    if (status !== 401 || error?.config?.skipAuthRedirect === true) {
+        return Promise.reject(error);
+    }
+
+    if (typeof window === "undefined") {
+        return Promise.reject(error);
+    }
+
+    if (authRedirectInProgress) {
+        return Promise.reject(error);
+    }
+
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const isLoginPage = currentPath.startsWith("/auth/login");
+    const isGatewayLoginRequest = requestUrl.startsWith("/login");
+
+    if (isLoginPage || isGatewayLoginRequest) {
+        return Promise.reject(error);
+    }
+
+    authRedirectInProgress = true;
+    const redirect = encodeURIComponent(currentPath);
+    window.location.assign(`/auth/login?redirect=${redirect}`);
+
+    return Promise.reject(error);
+}
+
 function attachLoggingInterceptors(instance) {
     instance.interceptors.request.use(logApiRequest, (error) => Promise.reject(error));
     instance.interceptors.response.use(logApiResponse, logApiResponseError);
+    instance.interceptors.response.use((response) => response, redirectToLoginOnUnauthorized);
 }
 
 export const axiosInstance = axios.create({

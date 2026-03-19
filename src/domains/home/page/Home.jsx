@@ -4,8 +4,8 @@ import { ArrowRight, Box, Flame, Gift, Heart, Layers3, Sparkles, Star, Timer } f
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { fundingCampaigns } from "@/domains/client/funding/mock/fundingData.js";
-import { buildFundingCampaignPath } from "@/domains/client/funding/lib/fundingPaths";
+import FundingClosingSoonCarousel from "@/domains/home/component/FundingClosingSoonCarousel";
+import { useClosingSoonFundingCampaignsQuery } from "@/domains/home/hook/getData";
 
 const highlights = [
     { label: "오늘 오픈 딜", value: "24", detail: "한정 특가 진행 중" },
@@ -54,17 +54,6 @@ const benefits = [
     },
 ];
 
-const fundingProjects = fundingCampaigns.slice(0, 3).map((campaign) => ({
-    id: campaign.id,
-    name: campaign.name,
-    category: campaign.category,
-    raised: campaign.raised,
-    goal: campaign.goal,
-    progress: campaign.progress,
-    daysLeftLabel: campaign.leftLabel,
-    thumbnail: campaign.thumbnail,
-}));
-
 const flashDeals = [
     {
         title: "무선 핸디 청소기",
@@ -86,24 +75,16 @@ const flashDeals = [
     },
 ];
 
-// 펀딩 진행률을 구간별 Tailwind 클래스로 변환
-function getFundingProgressClass(progress) {
-    const clamped = Math.min(progress, 100);
-    if (clamped >= 100) return "w-full";
-    if (clamped >= 90) return "w-11/12";
-    if (clamped >= 75) return "w-3/4";
-    if (clamped >= 50) return "w-1/2";
-    if (clamped >= 25) return "w-1/4";
-    return "w-1/6";
-}
-
-// 카드 애니메이션 딜레이를 index별 Tailwind 클래스로 변환
-function getDelayClass(index) {
-    const delays = ["delay-0", "delay-75", "delay-150", "delay-200", "delay-300"];
-    return delays[index] ?? "delay-0";
-}
-
 export default function Home() {
+    const {
+        data: closingSoonFundingData,
+        isLoading: isClosingSoonFundingLoading,
+        isError: isClosingSoonFundingError,
+        error: closingSoonFundingError,
+        refetch: refetchClosingSoonFunding,
+        isFetching: isClosingSoonFundingFetching,
+    } = useClosingSoonFundingCampaignsQuery({ size: 5 });
+
     return (
         <div className="space-y-10 pb-8 md:space-y-14 md:pb-12">
             {/* ── Hero ── */}
@@ -162,8 +143,8 @@ export default function Home() {
             <section className="space-y-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <p className="text-sm font-semibold text-muted-foreground">Funding Pick</p>
-                        <h2 className="text-2xl font-bold text-foreground">실시간 펀딩 프로젝트</h2>
+                        <p className="text-sm font-semibold text-muted-foreground">Funding Closing Soon</p>
+                        <h2 className="text-2xl font-bold text-foreground">마감 임박 펀딩</h2>
                     </div>
                     <Button asChild variant="ghost" className="h-9 rounded-full px-4 text-sm font-semibold">
                         <Link to="/funding">
@@ -173,45 +154,14 @@ export default function Home() {
                     </Button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {fundingProjects.map((project, index) => (
-                        <Link
-                            key={project.id}
-                            to={buildFundingCampaignPath(project.id)}
-                            className={cn("reveal-up block animate-in fade-in", getDelayClass(index))}
-                        >
-                            <Card className="h-full border-border bg-card shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:shadow-[0_18px_36px_rgba(15,23,42,0.12)]">
-                                <img src={project.thumbnail} alt={project.name} className="h-40 w-full rounded-t-xl object-cover" />
-                                <CardHeader className="pb-2">
-                                    <div className="mb-2 flex items-center justify-between text-xs">
-                                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
-                                            {project.category}
-                                        </span>
-                                        <span className="font-medium text-muted-foreground">{project.daysLeftLabel}</span>
-                                    </div>
-                                    <CardTitle className="text-base leading-snug text-card-foreground">{project.name}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                                        <div
-                                            className={cn(
-                                                "h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500",
-                                                getFundingProgressClass(project.progress)
-                                            )}
-                                        />
-                                    </div>
-                                    <div className="flex items-end justify-between text-sm">
-                                        <div>
-                                            <p className="font-semibold text-card-foreground">{project.raised}</p>
-                                            <p className="text-xs text-muted-foreground">목표 {project.goal}</p>
-                                        </div>
-                                        <p className="text-lg font-bold text-primary">{project.progress}%</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
+                <FundingClosingSoonCarousel
+                    projects={closingSoonFundingData?.items ?? []}
+                    isLoading={isClosingSoonFundingLoading}
+                    isError={isClosingSoonFundingError}
+                    errorMessage={closingSoonFundingError?.message}
+                    onRetry={() => refetchClosingSoonFunding()}
+                    isFetching={isClosingSoonFundingFetching}
+                />
             </section>
 
             {/* ── 카테고리 + 혜택 ── */}
