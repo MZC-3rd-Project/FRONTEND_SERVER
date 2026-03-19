@@ -1,17 +1,15 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { AlertCircle, ImageIcon, MapPin, Package, Phone, RefreshCw, Store, UserRound } from "lucide-react";
+import { AlertCircle, ImageIcon, MapPin, Package, Phone, RefreshCw, Sparkles, Store, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
+import StoreProductPreviewModal from "@/domains/client/store/component/StoreProductPreviewModal.jsx";
 import { STORE_IMAGE_PLACEHOLDER } from "@/domains/client/store/lib/storeMappers";
 import { useStoreDetailQuery } from "@/domains/client/store/query/useStoreQueries";
-
-function mapItemRouteProductType(itemType) {
-    return String(itemType || "").toUpperCase() === "PERFORMANCE" ? "ticket" : "stock";
-}
 
 function StoreDetailSkeleton() {
     return (
@@ -34,7 +32,7 @@ function StoreDetailSkeleton() {
     );
 }
 
-function ItemGroupSection({ title, items, store }) {
+function ItemGroupSection({ title, items, onPreviewItem }) {
     if (!items.length) {
         return null;
     }
@@ -47,39 +45,46 @@ function ItemGroupSection({ title, items, store }) {
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 {items.map((item) => (
-                    <Card key={item.id} className="overflow-hidden border-border bg-card">
-                        <img
-                            src={item.thumbnailUrl || STORE_IMAGE_PLACEHOLDER}
-                            alt={item.title}
-                            className="h-40 w-full object-cover"
-                        />
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between gap-2">
-                                <Badge variant="outline">{item.itemTypeLabel}</Badge>
-                                <Badge variant="secondary">{item.status}</Badge>
+                    <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onPreviewItem(item)}
+                        className="group relative overflow-hidden rounded-[1.6rem] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                    >
+                        <Card className="overflow-hidden border-border/70 bg-card/95 transition duration-300 group-hover:-translate-y-1 group-hover:border-cyan-300/60 group-hover:shadow-[0_24px_65px_rgba(8,145,178,0.18)] dark:group-hover:border-cyan-300/30">
+                            <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_38%)]" />
+                                <div className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/60 to-transparent transition-transform duration-700 group-hover:translate-x-[420%]" />
                             </div>
-                            <CardTitle className="text-base">{item.title}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm text-muted-foreground">
-                            <p>판매자 ID {item.sellerId ?? "-"}</p>
-                            <p className="font-semibold text-foreground">{item.priceText}</p>
-                            <Button asChild size="sm" variant="outline" className="rounded-full">
-                                <Link
-                                    to={`/store/${store.id}/product/${mapItemRouteProductType(item.itemType)}/${item.id}`}
-                                    state={{
-                                        store: {
-                                            id: store.id,
-                                            name: store.name,
-                                            description: store.description,
-                                        },
-                                        itemSummary: item,
-                                    }}
-                                >
-                                    상품 상세
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
+
+                            <div className="relative">
+                                <img
+                                    src={item.thumbnailUrl || STORE_IMAGE_PLACEHOLDER}
+                                    alt={item.title}
+                                    className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                                />
+                                <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                    <Sparkles className="h-3 w-3" />
+                                    클릭해서 보기
+                                </div>
+                            </div>
+
+                            <CardHeader className="relative pb-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <Badge variant="outline">{item.itemTypeLabel}</Badge>
+                                    <Badge variant="secondary">{item.status}</Badge>
+                                </div>
+                                <CardTitle className="text-base">{item.title}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="relative space-y-2 text-sm text-muted-foreground">
+                                <p>판매자 ID {item.sellerId ?? "-"}</p>
+                                <p className="font-semibold text-foreground">{item.priceText}</p>
+                                <p className="text-xs text-cyan-700 transition-colors group-hover:text-cyan-800 dark:text-cyan-300 dark:group-hover:text-cyan-200">
+                                    마우스를 올리고 클릭하면 이 화면 위에서 바로 미리보기가 열립니다.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </button>
                 ))}
             </div>
         </section>
@@ -89,6 +94,7 @@ function ItemGroupSection({ title, items, store }) {
 function StoreDetailPage() {
     const { storeId } = useParams();
     const { data: store, isLoading, isError, error, refetch, isFetching } = useStoreDetailQuery(storeId);
+    const [previewItem, setPreviewItem] = useState(null);
 
     if (isLoading) {
         return <StoreDetailSkeleton />;
@@ -199,9 +205,9 @@ function StoreDetailPage() {
                     </div>
                 </section>
 
-                <ItemGroupSection title="상품" items={store.groupedItems.PRODUCT} store={store} />
-                <ItemGroupSection title="굿즈" items={store.groupedItems.GOODS} store={store} />
-                <ItemGroupSection title="공연" items={store.groupedItems.PERFORMANCE} store={store} />
+                <ItemGroupSection title="상품" items={store.groupedItems.PRODUCT} onPreviewItem={setPreviewItem} />
+                <ItemGroupSection title="굿즈" items={store.groupedItems.GOODS} onPreviewItem={setPreviewItem} />
+                <ItemGroupSection title="공연" items={store.groupedItems.PERFORMANCE} onPreviewItem={setPreviewItem} />
 
                 {store.items.length === 0 ? (
                     <Card>
@@ -251,6 +257,18 @@ function StoreDetailPage() {
                     />
                 </div>
             </aside>
+
+            <StoreProductPreviewModal
+                key={previewItem?.id ?? "store-product-preview"}
+                open={Boolean(previewItem)}
+                item={previewItem}
+                store={{
+                    id: store.id,
+                    name: store.name,
+                    description: store.description,
+                }}
+                onClose={() => setPreviewItem(null)}
+            />
         </div>
     );
 }
