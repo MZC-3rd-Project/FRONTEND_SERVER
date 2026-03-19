@@ -1,23 +1,36 @@
 import { Link } from "react-router";
-import { ArrowRight, CalendarDays, Clock, MapPin, Pencil, Phone, ShieldCheck, User } from "lucide-react";
+import { MapPin, Pencil, Phone, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button.js";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.js";
 import AvatarDisplay from "@/components/profile/AvatarDisplay.jsx";
 import InfoCard from "@/components/profile/InfoCard.jsx";
-
-// ── Mock data (replace with real API response) ──────────────────────────────
-const profile = {
-    nickname: "길동이",
-    email: "hong@example.com",
-    phone: "010-1234-5678",
-    delivery: "서울특별시 강남구 테헤란로 123, 456동 789호",
-    createdAt: "2024. 03. 12",
-    updatedAt: "2025. 01. 08",
-    imageUrl: null, // null → placeholder
-};
+import { useProfileQuery } from "@/domains/client/profile/query/useProfileQuery";
 
 function ProfilePage() {
+    const { data: profile, isLoading, isError } = useProfileQuery();
+    console.log("data: ",profile);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-5 pb-10 max-w-2xl mx-auto">
+                <div className="animate-pulse bg-muted rounded-[2rem] h-52" />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="animate-pulse bg-muted rounded-xl h-24" />
+                    <div className="animate-pulse bg-muted rounded-xl h-24" />
+                </div>
+                <div className="animate-pulse bg-muted rounded-xl h-24" />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="max-w-2xl mx-auto py-10 text-center text-muted-foreground text-sm">
+                프로필 정보를 불러오지 못했습니다.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-5 pb-10 max-w-2xl mx-auto">
 
