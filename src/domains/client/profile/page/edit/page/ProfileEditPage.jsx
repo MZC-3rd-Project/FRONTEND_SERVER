@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { ArrowLeft, CheckCircle2, Clock, MapPin, User } from "lucide-react";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +40,7 @@ function formatTimer(sec) {
 export default function ProfileEditPage() {
     const [form, setForm] = useState(initialProfile);
     const [previewUrl, setPreviewUrl] = useState(initialProfile.imageUrl);
-    const [imageFile, setImageFile] = useState(null);
+    const [_imageFile, setImageFile] = useState(null);
 
     // 이메일 인증 단계 상태 (UI 전환용)
     const [emailStep, setEmailStep] = useState(STEP.LOCKED);
@@ -61,13 +61,12 @@ export default function ProfileEditPage() {
     });
 
     // ── 인증번호 요청 성공 → 타이머 시작 ──────
-    // useActionState는 렌더링 중 상태 변화를 감지하므로 ref로 이전 값 추적
-    const prevRequestSuccess = useRef(false);
-    if (requestState.success && !prevRequestSuccess.current) {
-        prevRequestSuccess.current = true;
+    useEffect(() => {
+        if (!requestState.success) return;
+
         setEmailStep(STEP.CODE_SENT);
-        clearInterval(timerRef.current);
         setTimer(CODE_TTL);
+        clearInterval(timerRef.current);
         timerRef.current = setInterval(() => {
             setTimer((prev) => {
                 if (prev <= 1) {
@@ -78,26 +77,24 @@ export default function ProfileEditPage() {
                 return prev - 1;
             });
         }, 1000);
-    }
-    if (!requestState.success) prevRequestSuccess.current = false;
+
+        return () => clearInterval(timerRef.current);
+    }, [requestState.success]);
 
     // ── 인증번호 확인 성공 → 이메일 업데이트 ──
-    const prevConfirmSuccess = useRef(false);
-    if (confirmState.success && !prevConfirmSuccess.current) {
-        prevConfirmSuccess.current = true;
+    useEffect(() => {
+        if (!confirmState.success) return;
+
         clearInterval(timerRef.current);
         setForm((prev) => ({ ...prev, email: newEmail }));
         setEmailStep(STEP.VERIFIED);
-    }
-    if (!confirmState.success) prevConfirmSuccess.current = false;
+    }, [confirmState.success]);
 
     // ── 이메일 변경 취소 ──────────────────────
     const handleCancelEmailEdit = () => {
         clearInterval(timerRef.current);
         setNewEmail(form.email);
         setEmailStep(STEP.LOCKED);
-        prevRequestSuccess.current = false;
-        prevConfirmSuccess.current = false;
     };
 
     // ── 이미지 ───────────────────────────────
@@ -375,7 +372,7 @@ export default function ProfileEditPage() {
             </form>
 
             {saveState.success && (
-                <p className="text-sm text-primary font-semibold text-center">✅ 프로필이 저장되었습니다.</p>
+                <p className="text-sm text-primary font-semibold text-center">프로필이 저장되었습니다.</p>
             )}
             {saveState.serverError && (
                 <p className="text-sm text-destructive font-semibold text-center">{saveState.serverError}</p>

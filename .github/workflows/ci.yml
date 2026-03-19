@@ -25,7 +25,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint -- --max-warnings=-1
+        run: npm run lint -- --max-warnings=999수
 
       - name: Build
         run: npm run build
