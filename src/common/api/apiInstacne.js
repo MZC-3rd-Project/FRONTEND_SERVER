@@ -1,6 +1,8 @@
 import axios from "axios";
+import { tokenManager } from "./tokenManager.js";
+import { createAuthClient } from "./createAuthClient.js";
 
-const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8071/api";
 const isDev = import.meta.env.DEV;
 
 function stripApiSuffix(url) {
@@ -23,6 +25,7 @@ function buildRequestUrl(config) {
 }
 
 function logApiRequest(config) {
+    console.log("isDev", isDev);
     if (!isDev) {
         return config;
     }
@@ -37,6 +40,7 @@ function logApiRequest(config) {
 }
 
 function logApiResponse(response) {
+    console.log("isDev", isDev);
     if (!isDev) {
         return response;
     }
@@ -52,6 +56,7 @@ function logApiResponse(response) {
 }
 
 function logApiResponseError(error) {
+    console.log("isDev : ", isDev)
     if (!isDev) {
         return Promise.reject(error);
     }
@@ -72,22 +77,27 @@ function attachLoggingInterceptors(instance) {
     instance.interceptors.response.use(logApiResponse, logApiResponseError);
 }
 
-export const axiosInstance = axios.create({
-    baseURL: apiBaseURL,
+const sharedConfig = {
     timeout: 5000,
     withCredentials: true,
-    headers: {
-        'Content-Type': 'application/json'
-    }
+    headers: { 'Content-Type': 'application/json' },
+};
+
+tokenManager.init({
+    refreshFn: async () => {
+        await axios.post(`${apiBaseURL}/auth/refresh`, {}, { withCredentials: true });
+    },
+    onRefreshFail: () => { window.location.href = '/login'; },
 });
 
-export const bffAxiosInstance = axios.create({
+export const axiosInstance = createAuthClient({
+    baseURL: apiBaseURL,
+    axiosConfig: sharedConfig,
+});
+
+export const bffAxiosInstance = createAuthClient({
     baseURL: stripApiSuffix(apiBaseURL) || undefined,
-    timeout: 5000,
-    withCredentials: true,
-    headers: {
-        'Content-Type': 'application/json'
-    }
+    axiosConfig: sharedConfig,
 });
 
 attachLoggingInterceptors(axiosInstance);
