@@ -7,7 +7,7 @@ import CatalogSearchResults from "@/components/search/CatalogSearchResults";
 import StoreSearchResults from "@/components/search/StoreSearchResults";
 import { Button } from "@/components/ui/button";
 import { useInfiniteScrollTrigger } from "@/common/hooks/useInfiniteScrollTrigger";
-import { useTopLevelCategoryNamesQuery } from "@/domains/client/category/query/useCategoryQueries";
+import { useTopLevelCategoryOptionsQuery } from "@/domains/client/category/query/useCategoryQueries";
 import { useInfiniteStoresQuery } from "@/domains/client/store/query/useStoreQueries";
 import { useCatalogItemNavigation } from "@/domains/client/search/hooks/useCatalogItemNavigation";
 import {
@@ -39,36 +39,40 @@ function SearchResultPage() {
     const scope = normalizeSearchScope(searchParams.get("scope"));
     const keyword = (searchParams.get("q") ?? "").trim();
     const sort = String(searchParams.get("sort") || "LATEST").toUpperCase();
-    const category = (searchParams.get("category") ?? "").trim() || "전체";
+    const categoryId = (searchParams.get("categoryId") ?? "").trim();
     const rawStatus = (searchParams.get("status") ?? "").trim();
     const [inputKeyword, setInputKeyword] = useState(keyword);
     const { pendingItemId, openItem } = useCatalogItemNavigation();
-    const { data: topLevelCategories } = useTopLevelCategoryNamesQuery();
+    const { data: topLevelCategories } = useTopLevelCategoryOptionsQuery();
     const statusOptions = getSearchStatusOptions(scope);
     const status = statusOptions.includes(rawStatus) ? rawStatus : "전체";
+    const categoryLabel = useMemo(
+        () => topLevelCategories?.find((category) => category.value === categoryId)?.label ?? (categoryId || "전체"),
+        [categoryId, topLevelCategories]
+    );
 
     useEffect(() => {
         setInputKeyword(keyword);
     }, [keyword]);
 
     const categoryOptions = useMemo(() => {
-        const baseOptions = ["전체", ...(topLevelCategories ?? [])];
-        if (category !== "전체" && !baseOptions.includes(category)) {
-            baseOptions.push(category);
+        const baseOptions = [{ value: "", label: "전체" }, ...(topLevelCategories ?? [])];
+        if (categoryId && !baseOptions.some((option) => option.value === categoryId)) {
+            baseOptions.push({ value: categoryId, label: categoryId });
         }
         return baseOptions;
-    }, [category, topLevelCategories]);
+    }, [categoryId, topLevelCategories]);
 
     const catalogQueryParams = useMemo(
         () => ({
             q: keyword,
             sort,
             size: 12,
-            category: category !== "전체" ? category : undefined,
+            category: categoryId || undefined,
             status: mapScopeStatusLabelToQueryStatus(scope, status),
             ...(mapScopeToCatalogChannel(scope) ? { channel: mapScopeToCatalogChannel(scope) } : {}),
         }),
-        [category, keyword, scope, sort, status]
+        [categoryId, keyword, scope, sort, status]
     );
 
     const catalogQuery = useInfiniteCatalogItemsQuery(catalogQueryParams, {
@@ -104,7 +108,7 @@ function SearchResultPage() {
         nextScope = scope,
         nextKeyword = inputKeyword,
         nextSort = sort,
-        nextCategory = category,
+        nextCategoryId = categoryId,
         nextStatus = status,
     } = {}) => {
         const resolvedStatusOptions = getSearchStatusOptions(nextScope);
@@ -113,7 +117,7 @@ function SearchResultPage() {
             scope: nextScope,
             q: nextKeyword,
             sort: nextSort,
-            category: nextScope === "store" ? "" : nextCategory,
+            categoryId: nextScope === "store" ? "" : nextCategoryId,
             status: nextScope === "store" ? "" : resolvedStatus,
         }).toString();
 
@@ -143,10 +147,13 @@ function SearchResultPage() {
                     compact
                     keyword={inputKeyword}
                     selectedScope={scope}
+                    selectedCategoryValue={categoryId}
                     onKeywordChange={setInputKeyword}
-                    onScopeChange={(nextScope) => updateSearchPage({ nextScope })}
-                    onSubmit={() => updateSearchPage({ nextKeyword: inputKeyword })}
+                    onScopeChange={(nextScope) => updateSearchPage({ nextScope, nextCategoryId: "" })}
+                    onCategoryChange={(nextCategoryId) => updateSearchPage({ nextCategoryId })}
+                    onSubmit={(nextKeyword) => updateSearchPage({ nextKeyword })}
                     submitLabel="검색"
+                    categoryOptions={scope === "store" ? [] : categoryOptions}
                     hints={["무선 청소기", "핫딜", "공연 굿즈", "운영중 스토어"]}
                 />
 
@@ -177,9 +184,9 @@ function SearchResultPage() {
                             키워드: {keyword}
                         </span>
                     ) : null}
-                    {category !== "전체" ? (
+                    {categoryId ? (
                         <span className="rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground">
-                            카테고리: {category}
+                            카테고리: {categoryLabel}
                         </span>
                     ) : null}
                     {status !== "전체" ? (
@@ -198,19 +205,19 @@ function SearchResultPage() {
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">카테고리</p>
                             <div className="flex flex-wrap gap-2">
                                 {categoryOptions.map((option) => {
-                                    const isActive = option === category;
+                                    const isActive = option.value === categoryId;
                                     return (
                                         <button
-                                            key={option}
+                                            key={option.value || option.label}
                                             type="button"
-                                            onClick={() => updateSearchPage({ nextCategory: option })}
+                                            onClick={() => updateSearchPage({ nextCategoryId: option.value })}
                                             className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
                                                 isActive
                                                     ? "border-primary bg-primary text-primary-foreground"
                                                     : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
                                             }`}
                                         >
-                                            {option}
+                                            {option.label}
                                         </button>
                                     );
                                 })}

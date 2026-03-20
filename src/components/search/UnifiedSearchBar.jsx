@@ -1,19 +1,22 @@
-import { Search, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import SearchAutocompleteInput from "@/components/search/SearchAutocompleteInput";
 import { SEARCH_SCOPE_OPTIONS } from "@/domains/client/search/lib/searchScopes";
 
 export default function UnifiedSearchBar({
     keyword,
     selectedScope = "all",
+    selectedCategoryValue = "",
     onKeywordChange,
     onScopeChange,
+    onCategoryChange,
     onSubmit,
     placeholder = "찾고 싶은 상품, 펀딩, 핫딜, 스토어를 입력하세요",
     submitLabel = "검색",
     hints = [],
+    categoryOptions = [],
     compact = false,
     className,
 }) {
@@ -21,7 +24,7 @@ export default function UnifiedSearchBar({
         <form
             onSubmit={(event) => {
                 event.preventDefault();
-                onSubmit?.();
+                onSubmit?.(keyword);
             }}
             className={cn(
                 "relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/95 shadow-[0_24px_80px_rgba(31,38,66,0.14)] backdrop-blur",
@@ -62,19 +65,45 @@ export default function UnifiedSearchBar({
                     })}
                 </div>
 
-                <div className={cn("grid gap-3", compact ? "lg:grid-cols-[1fr_112px]" : "lg:grid-cols-[1fr_132px]")}>
-                    <div className="relative">
-                        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            value={keyword}
-                            onChange={(event) => onKeywordChange?.(event.target.value)}
-                            placeholder={placeholder}
-                            className={cn(
-                                "h-13 rounded-[1.4rem] border-border bg-background pl-12 pr-4 text-base shadow-none",
-                                compact && "h-12"
-                            )}
-                        />
+                {categoryOptions.length > 0 ? (
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            카테고리 목록
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {categoryOptions.map((option) => {
+                                const isActive = selectedCategoryValue === option.value;
+                                return (
+                                    <button
+                                        key={option.value || option.label}
+                                        type="button"
+                                        onClick={() => onCategoryChange?.(option.value)}
+                                        className={cn(
+                                            "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
+                                            isActive
+                                                ? "border-primary bg-primary text-primary-foreground"
+                                                : "border-border bg-background/90 text-foreground hover:border-primary/60 hover:text-primary"
+                                        )}
+                                    >
+                                        {option.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
+                ) : null}
+
+                <div className={cn("grid gap-3", compact ? "lg:grid-cols-[1fr_112px]" : "lg:grid-cols-[1fr_132px]")}>
+                    <SearchAutocompleteInput
+                        value={keyword}
+                        onValueChange={onKeywordChange}
+                        onSubmit={(nextKeyword) => onSubmit?.(nextKeyword)}
+                        placeholder={placeholder}
+                        inputClassName={cn(
+                            "h-13 rounded-[1.4rem] border-border bg-background text-base shadow-none",
+                            compact && "h-12"
+                        )}
+                    />
                     <Button
                         type="submit"
                         className={cn(

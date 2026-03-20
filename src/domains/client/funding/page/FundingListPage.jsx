@@ -27,7 +27,7 @@ import {
     mapFundingStatusLabelToQueryStatus,
 } from "@/domains/client/search/lib/searchMappers";
 import { useInfiniteCatalogItemsQuery } from "@/domains/client/search/query/useSearchQueries";
-import { useTopLevelCategoryNamesQuery } from "@/domains/client/category/query/useCategoryQueries";
+import { useTopLevelCategoryOptionsQuery } from "@/domains/client/category/query/useCategoryQueries";
 
 function getStatusVariant(statusCode) {
     if (statusCode === "ACTIVE") return "default";
@@ -79,13 +79,19 @@ export default function FundingListPage() {
     const { pendingItemId, openItem } = useCatalogItemNavigation();
     const fundingListQuery = useInfiniteFundingCampaignsQuery({ size: 12 });
     const campaigns = useMemo(() => flattenPages(fundingListQuery.data), [fundingListQuery.data]);
-    const { data: topLevelCategories } = useTopLevelCategoryNamesQuery();
+    const { data: topLevelCategories } = useTopLevelCategoryOptionsQuery();
 
     const fundingCategories = useMemo(() => {
-        const source = (topLevelCategories?.length ? topLevelCategories : campaigns.map((campaign) => campaign.category))
-            .filter(Boolean);
-        return ["전체", ...new Set(source)];
-    }, [campaigns, topLevelCategories]);
+        const source = (topLevelCategories ?? []).map((category) => category.label);
+        return source.length > 0 ? ["전체", ...new Set(source)] : ["전체"];
+    }, [topLevelCategories]);
+    const fundingCategoryIdByLabel = useMemo(
+        () =>
+            new Map(
+                (topLevelCategories ?? []).map((category) => [category.label, category.value])
+            ),
+        [topLevelCategories]
+    );
     const fundingStatuses = useMemo(
         () => ["전체", ...new Set(campaigns.map((campaign) => campaign.status).filter(Boolean))],
         [campaigns]
@@ -96,7 +102,9 @@ export default function FundingListPage() {
         {
             q: appliedSearch.keyword,
             channel: "FUNDING",
-            category: appliedSearch.category !== "전체" ? appliedSearch.category : undefined,
+            category: appliedSearch.category !== "전체"
+                ? (fundingCategoryIdByLabel.get(appliedSearch.category) ?? undefined)
+                : undefined,
             status: mapFundingStatusLabelToQueryStatus(appliedSearch.status),
             size: 12,
         },

@@ -34,14 +34,14 @@ export function buildSearchPageQuery({
     scope = "all",
     q = "",
     sort = "",
-    category = "",
+    categoryId = "",
     status = "",
 }) {
     const params = new URLSearchParams();
     const normalizedScope = normalizeSearchScope(scope);
     const keyword = String(q || "").trim();
     const normalizedSort = String(sort || "").trim().toUpperCase();
-    const normalizedCategory = String(category || "").trim();
+    const normalizedCategoryId = String(categoryId || "").trim();
     const normalizedStatus = String(status || "").trim();
 
     if (normalizedScope !== "all") {
@@ -53,8 +53,8 @@ export function buildSearchPageQuery({
     if (normalizedSort && normalizedSort !== "LATEST") {
         params.set("sort", normalizedSort);
     }
-    if (normalizedCategory && normalizedCategory !== "전체") {
-        params.set("category", normalizedCategory);
+    if (normalizedCategoryId) {
+        params.set("categoryId", normalizedCategoryId);
     }
     if (normalizedStatus && normalizedStatus !== "전체") {
         params.set("status", normalizedStatus);

@@ -14,6 +14,33 @@ export async function fetchCatalogItems(params = {}) {
     }
 }
 
+export async function fetchSearchSuggestions({
+    q,
+    size = 10,
+    signal,
+} = {}) {
+    try {
+        const response = await bffAxiosInstance.get("/bff/v1/search/suggestions", {
+            params: {
+                q,
+                size,
+            },
+            signal,
+        });
+
+        return unwrapApiResponseBody(response, "검색 제안어를 불러오지 못했습니다.");
+    } catch (error) {
+        if (
+            error?.code === "ERR_CANCELED" ||
+            error?.name === "CanceledError" ||
+            error?.name === "AbortError"
+        ) {
+            throw error;
+        }
+        throw normalizeApiError(error, "검색 제안어 조회에 실패했습니다.");
+    }
+}
+
 export async function fetchCatalogItemDetail({
     itemId,
     itemType,

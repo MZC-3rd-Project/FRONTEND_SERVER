@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Flame, History, RotateCcw, Search } from "lucide-react";
+import { Flame, History, RotateCcw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import SearchAutocompleteInput from "@/components/search/SearchAutocompleteInput";
 
 const RECENT_SEARCHES_KEY = "don-moa.recent-searches.v1";
 const MAX_RECENT_SEARCHES = 20;
@@ -161,21 +161,14 @@ export default function StickySearchPanel({
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         키워드 검색
                     </p>
-                    <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            type="text"
-                            value={keyword}
-                            onChange={(e) => setKeyword(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    submitSearch();
-                                }
-                            }}
-                            placeholder={placeholder}
-                            className="h-10 pl-9"
-                        />
-                    </div>
+                    <SearchAutocompleteInput
+                        value={keyword}
+                        onValueChange={setKeyword}
+                        onSubmit={(nextKeyword) => submitSearch({ nextKeyword })}
+                        placeholder={placeholder}
+                        inputClassName="h-10"
+                        panelClassName="top-[calc(100%+0.35rem)]"
+                    />
                 </div>
 
                 {/* 최근 검색어 */}

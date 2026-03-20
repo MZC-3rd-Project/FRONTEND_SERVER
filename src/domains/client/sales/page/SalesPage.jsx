@@ -27,7 +27,7 @@ import {
     mapSalesStatusLabelToQueryStatus,
 } from "@/domains/client/search/lib/searchMappers";
 import { useInfiniteCatalogItemsQuery } from "@/domains/client/search/query/useSearchQueries";
-import { useTopLevelCategoryNamesQuery } from "@/domains/client/category/query/useCategoryQueries";
+import { useTopLevelCategoryOptionsQuery } from "@/domains/client/category/query/useCategoryQueries";
 
 function getSaleStatusVariant(statusCode) {
     if (statusCode === "ON_SALE") return "default";
@@ -84,12 +84,18 @@ function SalesPage() {
     const { pendingItemId, openItem } = useCatalogItemNavigation();
     const salesQuery = useInfiniteNormalSalesQuery({ size: 12 });
     const salesItems = useMemo(() => flattenPages(salesQuery.data), [salesQuery.data]);
-    const { data: topLevelCategories } = useTopLevelCategoryNamesQuery();
+    const { data: topLevelCategories } = useTopLevelCategoryOptionsQuery();
     const salesCategories = useMemo(() => {
-        const source = (topLevelCategories?.length ? topLevelCategories : salesItems.map((item) => item.category))
-            .filter(Boolean);
-        return ["전체", ...new Set(source)];
-    }, [salesItems, topLevelCategories]);
+        const source = (topLevelCategories ?? []).map((category) => category.label);
+        return source.length > 0 ? ["전체", ...new Set(source)] : ["전체"];
+    }, [topLevelCategories]);
+    const salesCategoryIdByLabel = useMemo(
+        () =>
+            new Map(
+                (topLevelCategories ?? []).map((category) => [category.label, category.value])
+            ),
+        [topLevelCategories]
+    );
     const salesStatuses = useMemo(() => {
         const source = salesItems
             .map((item) => item.status)
@@ -101,7 +107,9 @@ function SalesPage() {
         {
             q: appliedSearch.keyword,
             channel: "NORMAL",
-            category: appliedSearch.category !== "전체" ? appliedSearch.category : undefined,
+            category: appliedSearch.category !== "전체"
+                ? (salesCategoryIdByLabel.get(appliedSearch.category) ?? undefined)
+                : undefined,
             status: mapSalesStatusLabelToQueryStatus(appliedSearch.status),
             size: 12,
         },
