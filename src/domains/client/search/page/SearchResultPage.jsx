@@ -147,13 +147,10 @@ function SearchResultPage() {
                     compact
                     keyword={inputKeyword}
                     selectedScope={scope}
-                    selectedCategoryValue={categoryId}
                     onKeywordChange={setInputKeyword}
                     onScopeChange={(nextScope) => updateSearchPage({ nextScope, nextCategoryId: "" })}
-                    onCategoryChange={(nextCategoryId) => updateSearchPage({ nextCategoryId })}
                     onSubmit={(nextKeyword) => updateSearchPage({ nextKeyword })}
                     submitLabel="검색"
-                    categoryOptions={scope === "store" ? [] : categoryOptions}
                     hints={["무선 청소기", "핫딜", "공연 굿즈", "운영중 스토어"]}
                 />
 

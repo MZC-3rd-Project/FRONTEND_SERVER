@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import UnifiedSearchBar from "@/components/search/UnifiedSearchBar";
 import { cn } from "@/lib/utils";
-import { useTopLevelCategoryOptionsQuery } from "@/domains/client/category/query/useCategoryQueries";
 import { buildSearchPageQuery } from "@/domains/client/search/lib/searchScopes";
 import FundingClosingSoonCarousel from "@/domains/home/component/FundingClosingSoonCarousel";
 import { useClosingSoonFundingCampaignsQuery } from "@/domains/home/hook/getData";
@@ -83,8 +82,6 @@ export default function Home() {
     const navigate = useNavigate();
     const [searchKeyword, setSearchKeyword] = useState("");
     const [searchScope, setSearchScope] = useState("all");
-    const [searchCategoryId, setSearchCategoryId] = useState("");
-    const { data: topLevelCategories } = useTopLevelCategoryOptionsQuery();
     const {
         data: closingSoonFundingData,
         isLoading: isClosingSoonFundingLoading,
@@ -98,7 +95,6 @@ export default function Home() {
         const query = buildSearchPageQuery({
             scope: searchScope,
             q: nextKeyword,
-            categoryId: searchScope === "store" ? "" : searchCategoryId,
         }).toString();
         navigate(query ? `/search?${query}` : "/search");
     };
@@ -129,18 +125,10 @@ export default function Home() {
                     <UnifiedSearchBar
                         keyword={searchKeyword}
                         selectedScope={searchScope}
-                        selectedCategoryValue={searchCategoryId}
                         onKeywordChange={setSearchKeyword}
-                        onScopeChange={(nextScope) => {
-                            setSearchScope(nextScope);
-                            if (nextScope === "store") {
-                                setSearchCategoryId("");
-                            }
-                        }}
-                        onCategoryChange={setSearchCategoryId}
+                        onScopeChange={setSearchScope}
                         onSubmit={moveToIntegratedSearch}
                         submitLabel="통합검색"
-                        categoryOptions={searchScope === "store" ? [] : [{ value: "", label: "전체" }, ...(topLevelCategories ?? [])]}
                         hints={["무선 청소기", "공연 티켓", "운영중 스토어", "펀딩 진행중"]}
                     />
 
