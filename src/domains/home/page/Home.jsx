@@ -1,9 +1,12 @@
-import { Link } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { ArrowRight, Box, Flame, Gift, Heart, Layers3, Sparkles, Star, Timer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import UnifiedSearchBar from "@/components/search/UnifiedSearchBar";
 import { cn } from "@/lib/utils";
+import { buildSearchPageQuery } from "@/domains/client/search/lib/searchScopes";
 import FundingClosingSoonCarousel from "@/domains/home/component/FundingClosingSoonCarousel";
 import { useClosingSoonFundingCampaignsQuery } from "@/domains/home/hook/getData";
 
@@ -76,6 +79,9 @@ const flashDeals = [
 ];
 
 export default function Home() {
+    const navigate = useNavigate();
+    const [searchKeyword, setSearchKeyword] = useState("");
+    const [searchScope, setSearchScope] = useState("all");
     const {
         data: closingSoonFundingData,
         isLoading: isClosingSoonFundingLoading,
@@ -84,6 +90,11 @@ export default function Home() {
         refetch: refetchClosingSoonFunding,
         isFetching: isClosingSoonFundingFetching,
     } = useClosingSoonFundingCampaignsQuery({ size: 5 });
+
+    const moveToIntegratedSearch = () => {
+        const query = buildSearchPageQuery({ scope: searchScope, q: searchKeyword }).toString();
+        navigate(query ? `/search?${query}` : "/search");
+    };
 
     return (
         <div className="space-y-10 pb-8 md:space-y-14 md:pb-12">
@@ -107,6 +118,16 @@ export default function Home() {
                     <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
                         오늘의 인기 상품, 타임세일, 새로 시작한 펀딩 프로젝트까지 클라이언트 관점에서 가장 필요한 정보만 먼저 보여줍니다.
                     </p>
+
+                    <UnifiedSearchBar
+                        keyword={searchKeyword}
+                        selectedScope={searchScope}
+                        onKeywordChange={setSearchKeyword}
+                        onScopeChange={setSearchScope}
+                        onSubmit={moveToIntegratedSearch}
+                        submitLabel="통합검색"
+                        hints={["무선 청소기", "공연 티켓", "운영중 스토어", "펀딩 진행중"]}
+                    />
 
                     <div className="flex flex-wrap items-center gap-3 pt-1">
                         <Button asChild className="h-10 rounded-full px-6 text-sm font-semibold">

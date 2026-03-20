@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { shouldRetryRequest } from "@/common/api/queryRetry";
 import { fetchHotDealDetail, fetchHotDeals } from "@/domains/client/deals/api/dealsApi";
@@ -19,6 +19,27 @@ export function useHotDealsQuery(params = {}) {
             const payload = await fetchHotDeals(params);
             return mapHotDealListPayload(payload);
         },
+        retry: shouldRetryRequest,
+        staleTime: 30_000,
+    });
+}
+
+export function useInfiniteHotDealsQuery(params = {}) {
+    const size = params?.size ?? 12;
+
+    return useInfiniteQuery({
+        queryKey: [...dealsKeys.list(params), "infinite"],
+        queryFn: async ({ pageParam }) => {
+            const payload = await fetchHotDeals({
+                ...params,
+                size,
+                ...(pageParam ? { cursor: pageParam } : {}),
+            });
+
+            return mapHotDealListPayload(payload);
+        },
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
         retry: shouldRetryRequest,
         staleTime: 30_000,
     });

@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal.jsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { encodeIdPathSegment, toIdString } from "@/common/utils/id";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { resolveStorePreviewProduct, mapStoreItemRouteProductType } from "@/domains/client/store/lib/storeProductPreview";
 import { STORE_IMAGE_PLACEHOLDER } from "@/domains/client/store/lib/storeMappers";
@@ -46,10 +47,12 @@ function StoreProductPreviewModal({ item, store, open, onClose }) {
     }
 
     const routeProductType = mapStoreItemRouteProductType(item?.itemType);
+    const resolvedStoreId = toIdString(preview.store.id);
+    const resolvedProductId = toIdString(product.id);
     const ticketQuery = isTicket && selectedTier ? `&ticketGrade=${encodeURIComponent(selectedTier.grade)}` : "";
     const quantityQuery = isTicket && safeTicketQuantity > 0 ? `&ticketQuantity=${safeTicketQuantity}` : "";
-    const directCheckoutLink = `/checkout?mode=direct&storeId=${preview.store.id}&productType=${preview.productType}&productId=${product.id}${ticketQuery}${quantityQuery}`;
-    const detailLink = `/store/${preview.store.id}/product/${routeProductType}/${product.id}`;
+    const directCheckoutLink = `/checkout?mode=direct&storeId=${encodeURIComponent(resolvedStoreId)}&productType=${encodeURIComponent(preview.productType)}&productId=${encodeURIComponent(resolvedProductId)}${ticketQuery}${quantityQuery}`;
+    const detailLink = `/store/${encodeIdPathSegment(resolvedStoreId)}/product/${routeProductType}/${encodeIdPathSegment(resolvedProductId)}`;
     const previewDescription = preview.isSummaryFallback
         ? "스토어 응답 기준의 요약 정보로 빠르게 확인할 수 있게 구성했습니다."
         : "페이지 이동 없이 상품 핵심 정보와 구매 동선을 먼저 확인할 수 있습니다.";
@@ -126,7 +129,7 @@ function StoreProductPreviewModal({ item, store, open, onClose }) {
                                             to={detailLink}
                                             state={{
                                                 store: {
-                                                    id: preview.store.id,
+                                                    id: resolvedStoreId,
                                                     name: preview.store.name,
                                                     description: store?.description ?? preview.store.tagline,
                                                 },

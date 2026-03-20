@@ -32,14 +32,18 @@ function isSameEntry(left, right) {
 }
 
 export default function StickySearchPanel({
-                                              scope,
-                                              title,
-                                              description,
-                                              placeholder,
-                                              categories,
-                                              statuses = ["전체"],
-                                          }) {
+    scope,
+    title,
+    description,
+    placeholder,
+    categories,
+    statuses = ["전체"],
+    mode = "route",
+    onSearch,
+    submitLabel,
+}) {
     const navigate = useNavigate();
+    const isInlineMode = mode === "inline";
     const defaultCategory = categories.includes("전체") ? "전체" : (categories[0] ?? "전체");
     const defaultStatus = statuses.includes("전체") ? "전체" : (statuses[0] ?? "전체");
 
@@ -73,21 +77,55 @@ export default function StickySearchPanel({
     const buildQuery = ({ nextKeyword, nextCategory, nextStatus }) => {
         const query = new URLSearchParams();
         query.set("scope", scope);
-        if (nextKeyword.trim()) query.set("keyword", nextKeyword.trim());
+        if (nextKeyword.trim()) query.set("q", nextKeyword.trim());
         if (nextCategory !== "전체") query.set("category", nextCategory);
         if (nextStatus !== "전체") query.set("status", nextStatus);
         return query;
     };
 
-    const moveToSearchResult = ({ nextKeyword = keyword, nextCategory = appliedCategory, nextStatus = appliedStatus, saveRecent = true } = {}) => {
-        if (saveRecent) saveRecentSearch({ nextKeyword: nextKeyword.trim(), nextCategory, nextStatus });
-        navigate(`/search?${buildQuery({ nextKeyword, nextCategory, nextStatus }).toString()}`);
+    const submitSearch = ({
+        nextKeyword = keyword,
+        nextCategory = appliedCategory,
+        nextStatus = appliedStatus,
+        saveRecent = true,
+    } = {}) => {
+        const trimmedKeyword = nextKeyword.trim();
+        if (saveRecent) {
+            saveRecentSearch({
+                nextKeyword: trimmedKeyword,
+                nextCategory,
+                nextStatus,
+            });
+        }
+
+        const payload = {
+            scope,
+            keyword: trimmedKeyword,
+            category: nextCategory,
+            status: nextStatus,
+        };
+
+        if (isInlineMode) {
+            onSearch?.(payload);
+            return;
+        }
+
+        navigate(`/search?${buildQuery({ nextKeyword: trimmedKeyword, nextCategory, nextStatus }).toString()}`);
     };
 
     const handleReset = () => {
         setKeyword("");
         setSelectedCategory(defaultCategory);
         setSelectedStatus(defaultStatus);
+
+        if (isInlineMode) {
+            onSearch?.({
+                scope,
+                keyword: "",
+                category: defaultCategory,
+                status: defaultStatus,
+            });
+        }
     };
 
     const clearRecentByScope = () => {
@@ -129,7 +167,11 @@ export default function StickySearchPanel({
                             type="text"
                             value={keyword}
                             onChange={(e) => setKeyword(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") moveToSearchResult(); }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    submitSearch();
+                                }
+                            }}
                             placeholder={placeholder}
                             className="h-10 pl-9"
                         />
@@ -172,7 +214,7 @@ export default function StickySearchPanel({
                                             setKeyword(entry.keyword);
                                             setSelectedCategory(entry.category);
                                             setSelectedStatus(entry.status);
-                                            moveToSearchResult({
+                                            submitSearch({
                                                 nextKeyword: entry.keyword,
                                                 nextCategory: entry.category,
                                                 nextStatus: entry.status,
@@ -278,10 +320,10 @@ export default function StickySearchPanel({
                 {/* 검색 실행 버튼 */}
                 <Button
                     type="button"
-                    onClick={() => moveToSearchResult()}
+                    onClick={() => submitSearch()}
                     className="h-10 w-full rounded-full text-sm font-semibold"
                 >
-                    검색 결과 페이지로 이동
+                    {submitLabel ?? (isInlineMode ? "현재 페이지에서 검색" : "검색 결과 페이지로 이동")}
                 </Button>
 
             </CardContent>

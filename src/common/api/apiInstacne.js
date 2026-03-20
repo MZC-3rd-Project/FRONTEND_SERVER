@@ -142,6 +142,9 @@ const sharedConfig = {
     timeout: 5000,
     withCredentials: true,
     headers: { 'Content-Type': 'application/json' },
+    transformResponse: [
+        (raw) => parseResponseData(raw),
+    ],
 };
 
 tokenManager.init({

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { shouldRetryRequest } from "@/common/api/queryRetry";
 import { fetchNormalSaleDetail, fetchNormalSales } from "@/domains/client/sales/api/salesApi";
@@ -22,6 +22,27 @@ export function useNormalSalesQuery(params = {}) {
             const payload = await fetchNormalSales(params);
             return mapNormalSaleListPayload(payload);
         },
+        retry: shouldRetryRequest,
+        staleTime: 30_000,
+    });
+}
+
+export function useInfiniteNormalSalesQuery(params = {}) {
+    const size = params?.size ?? 12;
+
+    return useInfiniteQuery({
+        queryKey: [...salesKeys.list(params), "infinite"],
+        queryFn: async ({ pageParam }) => {
+            const payload = await fetchNormalSales({
+                ...params,
+                size,
+                ...(pageParam ? { cursor: pageParam } : {}),
+            });
+
+            return mapNormalSaleListPayload(payload);
+        },
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
         retry: shouldRetryRequest,
         staleTime: 30_000,
     });

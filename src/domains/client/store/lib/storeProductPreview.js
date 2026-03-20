@@ -1,4 +1,5 @@
 import { formatPrice } from "@/domains/client/common/utils/format.js";
+import { toIdString } from "@/common/utils/id";
 import { STORE_IMAGE_PLACEHOLDER } from "@/domains/client/store/lib/storeMappers";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 
@@ -8,7 +9,7 @@ export function mapStoreItemRouteProductType(itemType) {
 
 export function resolveStorePreviewProduct(store, item) {
     const productType = mapStoreItemRouteProductType(item?.itemType);
-    const resolved = findStoreProduct(String(store?.id ?? ""), productType, String(item?.id ?? ""));
+    const resolved = findStoreProduct(toIdString(store?.id), productType, toIdString(item?.id));
 
     if (resolved) {
         return {
@@ -21,7 +22,7 @@ export function resolveStorePreviewProduct(store, item) {
         productType,
         isSummaryFallback: true,
         store: {
-            id: store?.id ?? "",
+            id: toIdString(store?.id),
             name: store?.name ?? "스토어 정보 준비 중",
             tagline: store?.description ?? "스토어 소개 준비 중",
             rating: 0,
@@ -29,7 +30,7 @@ export function resolveStorePreviewProduct(store, item) {
             soldSummary: [],
         },
         product: {
-            id: item?.id ?? "",
+            id: toIdString(item?.id),
             name: item?.title ?? "상품 정보 준비 중",
             thumbnail: item?.thumbnailUrl || STORE_IMAGE_PLACEHOLDER,
             price: item?.priceText || formatPrice(item?.price),

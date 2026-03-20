@@ -46,6 +46,7 @@ export function mapNormalSaleListPayload(payload) {
                 saleId,
                 itemId: toId(item?.itemId ?? item?.saleId ?? item?.id),
                 title: toText(item?.title, "이름 없는 일반판매 상품"),
+                category: toText(item?.category, "기타"),
                 itemType: toText(item?.itemType, "PRODUCT"),
                 itemTypeLabel: mapItemTypeLabel(item?.itemType),
                 salesChannel: toText(item?.salesChannel, "NORMAL"),
@@ -59,7 +60,6 @@ export function mapNormalSaleListPayload(payload) {
                 stock: stock ?? 0,
                 soldOut: stock === 0 || statusCode === "SOLD_OUT" || statusCode === "ENDED",
                 activeCampaignId: toId(item?.activeCampaignId ?? item?.campaignId),
-                fundingTitle: toText(item?.fundingTitle, ""),
                 storeName: toText(item?.storeName, ""),
             };
         }),
@@ -101,17 +101,7 @@ export function mapNormalSaleDetailPayload(raw = {}) {
         priceText: formatPrice(raw?.price ?? item.price),
         store: mapStore(raw?.store, { name: raw?.storeName }),
         stock,
-        originFunding: raw?.originFunding
-            ? {
-                campaignId: toId(raw?.originFunding?.campaignId),
-                title: toText(raw?.originFunding?.title, ""),
-            }
-            : raw?.fundingTitle
-                ? {
-                    campaignId: null,
-                    title: toText(raw?.fundingTitle, ""),
-                }
-            : null,
+        originFunding: null,
         item: {
             ...item,
             thumbnailUrl: item.thumbnailUrl || toText(raw?.thumbnailUrl, ""),
@@ -121,6 +111,5 @@ export function mapNormalSaleDetailPayload(raw = {}) {
         checkout: raw?.checkout ?? null,
         canPurchase: !stock.soldOut && statusCode !== "ENDED",
         storeName: toText(raw?.storeName, ""),
-        fundingTitle: toText(raw?.fundingTitle, ""),
     };
 }

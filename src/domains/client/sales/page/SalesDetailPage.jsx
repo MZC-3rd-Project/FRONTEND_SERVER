@@ -153,11 +153,6 @@ function SalesDetailPage() {
                                 <Badge>{sale.status}</Badge>
                                 <Badge variant="outline">{sale.category}</Badge>
                             </div>
-                            {sale.originFunding?.title ? (
-                                <p className="text-sm text-muted-foreground">원 프로젝트: {sale.originFunding.title}</p>
-                            ) : sale.fundingTitle ? (
-                                <p className="text-sm text-muted-foreground">원 프로젝트: {sale.fundingTitle}</p>
-                            ) : null}
                             {store.name ? (
                                 <p className="text-sm text-muted-foreground">판매 스토어: {store.name}</p>
                             ) : null}

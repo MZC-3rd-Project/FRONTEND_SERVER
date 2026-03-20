@@ -640,21 +640,24 @@ const extraStores = [
 export const stores = [...baseStores, ...extraStores];
 
 export function findStoreById(storeId) {
-    return stores.find((store) => store.id === storeId);
+    return stores.find((store) => String(store.id ?? "") === String(storeId ?? ""));
 }
 
 export function findStoreProduct(storeId, productType, productId) {
     const store = findStoreById(storeId);
     if (!store) return null;
 
-    if (productType === "ticket") {
-        const product = store.ticketProducts.find((item) => item.id === productId);
+    const normalizedProductType = String(productType ?? "");
+    const normalizedProductId = String(productId ?? "");
+
+    if (normalizedProductType === "ticket") {
+        const product = store.ticketProducts.find((item) => String(item.id ?? "") === normalizedProductId);
         if (!product) return null;
         return { store, product, productType: "ticket" };
     }
 
-    if (productType === "stock") {
-        const product = store.stockProducts.find((item) => item.id === productId);
+    if (normalizedProductType === "stock") {
+        const product = store.stockProducts.find((item) => String(item.id ?? "") === normalizedProductId);
         if (!product) return null;
         return { store, product, productType: "stock" };
     }

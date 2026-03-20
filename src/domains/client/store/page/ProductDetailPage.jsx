@@ -4,6 +4,7 @@ import { Calendar, MapPin, Package, Star, Ticket } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { encodeIdPathSegment, toIdString } from "@/common/utils/id";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { STORE_IMAGE_PLACEHOLDER } from "@/domains/client/store/lib/storeMappers";
@@ -15,8 +16,10 @@ function ratingText(rating) {
 
 function buildSummaryFallbackResult({ storeId, productType, productId, locationState }) {
     const itemSummary = locationState?.itemSummary;
+    const resolvedStoreId = toIdString(storeId);
+    const resolvedProductId = toIdString(productId);
 
-    if (!itemSummary || String(itemSummary.id ?? "") !== String(productId ?? "")) {
+    if (!itemSummary || toIdString(itemSummary.id) !== resolvedProductId) {
         return null;
     }
 
@@ -27,7 +30,7 @@ function buildSummaryFallbackResult({ storeId, productType, productId, locationS
         productType: isTicket ? "ticket" : "stock",
         isSummaryFallback: true,
         store: {
-            id: storeId,
+            id: resolvedStoreId,
             name: storeSummary.name ?? locationState?.storeName ?? "스토어 정보 준비 중",
             tagline: storeSummary.description ?? "스토어 소개 준비 중",
             rating: 0,
@@ -35,7 +38,7 @@ function buildSummaryFallbackResult({ storeId, productType, productId, locationS
             soldSummary: [],
         },
         product: {
-            id: itemSummary.id,
+            id: resolvedProductId,
             name: itemSummary.title ?? "상품 정보 준비 중",
             thumbnail: itemSummary.thumbnailUrl || STORE_IMAGE_PLACEHOLDER,
             price: itemSummary.priceText || formatPrice(itemSummary.price),
@@ -51,7 +54,9 @@ function buildSummaryFallbackResult({ storeId, productType, productId, locationS
 }
 
 function ProductDetailPage() {
-    const { storeId, productType, productId } = useParams();
+    const { storeId: rawStoreId, productType, productId: rawProductId } = useParams();
+    const storeId = toIdString(rawStoreId);
+    const productId = toIdString(rawProductId);
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const result =
@@ -65,6 +70,8 @@ function ProductDetailPage() {
     const isSummaryFallback = result?.isSummaryFallback === true;
     const isTicket = result?.productType === "ticket";
     const product = result?.product;
+    const resolvedStoreId = toIdString(result?.store?.id ?? storeId);
+    const resolvedProductId = toIdString(product?.id ?? productId);
     const tiers = product?.tiers ?? [];
     const preferredTicketGrade = searchParams.get("ticketGrade") ?? "";
     const preferredTicketQuantity = Number(searchParams.get("ticketQuantity") ?? "1");
@@ -101,7 +108,7 @@ function ProductDetailPage() {
                             <Link to="/store">스토어 목록으로 이동</Link>
                         </Button>
                         <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-5 text-zinc-700 hover:bg-zinc-100">
-                            <Link to={`/store/${storeId}`}>가게로 돌아가기</Link>
+                            <Link to={`/store/${encodeIdPathSegment(storeId)}`}>가게로 돌아가기</Link>
                         </Button>
                     </CardContent>
                 </Card>
@@ -113,7 +120,7 @@ function ProductDetailPage() {
 
     const ticketQuery = isTicket && selectedTier ? `&ticketGrade=${encodeURIComponent(selectedTier.grade)}` : "";
     const quantityQuery = isTicket && safeTicketQuantity > 0 ? `&ticketQuantity=${safeTicketQuantity}` : "";
-    const directCheckoutLink = `/checkout?mode=direct&storeId=${store.id}&productType=${result.productType}&productId=${product.id}${ticketQuery}${quantityQuery}`;
+    const directCheckoutLink = `/checkout?mode=direct&storeId=${encodeURIComponent(resolvedStoreId)}&productType=${encodeURIComponent(result.productType)}&productId=${encodeURIComponent(resolvedProductId)}${ticketQuery}${quantityQuery}`;
     const detailSections = isSummaryFallback
         ? []
         : isTicket
@@ -222,7 +229,7 @@ function ProductDetailPage() {
                                     </Button>
                                 )}
                                 <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-5 text-zinc-700 hover:bg-zinc-100">
-                                    <Link to={`/store/${store.id}`}>가게로 이동</Link>
+                                    <Link to={`/store/${encodeIdPathSegment(resolvedStoreId)}`}>가게로 이동</Link>
                                 </Button>
                             </div>
                         </div>
@@ -394,7 +401,7 @@ function ProductDetailPage() {
                                 </>
                             )}
                             <Button asChild variant="ghost" className="h-8 rounded-full px-3 text-zinc-700 hover:bg-zinc-100">
-                                <Link to={`/store/${store.id}`}>가게 상세 더보기</Link>
+                                <Link to={`/store/${encodeIdPathSegment(resolvedStoreId)}`}>가게 상세 더보기</Link>
                             </Button>
                         </CardContent>
                     </Card>
@@ -450,7 +457,7 @@ function ProductDetailPage() {
                         <CardContent className="space-y-2">
                             {product.reviews.length > 0 ? (
                                 product.reviews.map((review) => (
-                                    <div key={`${product.id}-${review.user}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
+                                    <div key={`${resolvedProductId}-${review.user}`} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
                                         <p className="font-semibold text-zinc-900">
                                             {review.user} <span className="ml-1 text-amber-500">{ratingText(review.rating)}</span>
                                         </p>
@@ -468,7 +475,7 @@ function ProductDetailPage() {
             <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
                 <StickyStoreChat
                     storeName={store.name}
-                    itemId={product.id}
+                    itemId={resolvedProductId}
                     disabledReason="현재 스토어 상품 상세는 mock 데이터 기반이라 실채팅 문의방을 열 수 없습니다."
                 />
             </aside>
