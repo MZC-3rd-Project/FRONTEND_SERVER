@@ -3,9 +3,9 @@ import axios from "axios";
 import { axiosInstance } from "@/common/api/apiInstacne";
 import { normalizeApiError, unwrapApiResponseBody } from "@/common/api/responseUtils";
 
-export async function fetchProfile() {
+export async function fetchProfile(config = {}) {
     try {
-        const response = await axiosInstance.get("/profile");
+        const response = await axiosInstance.get("/profile", config);
         return unwrapApiResponseBody(response, "프로필 정보를 불러오지 못했습니다.");
     } catch (error) {
         throw normalizeApiError(error, "프로필 조회에 실패했습니다.");

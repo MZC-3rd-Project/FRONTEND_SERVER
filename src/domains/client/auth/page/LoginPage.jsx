@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ function resolveRedirectPath(rawRedirect) {
 }
 
 function LoginPage() {
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
@@ -61,7 +62,7 @@ function LoginPage() {
             }
 
             login({ username: body.get("username") });
-            window.location.assign(redirectPath);
+            navigate(redirectPath, { replace: true });
         } catch (error) {
             setSubmitError(error instanceof Error ? error.message : "로그인 요청에 실패했습니다.");
         } finally {

@@ -17,7 +17,7 @@ const menus = [
 ];
 
 export default function Header({
-                                   isLoggedIn = true,
+                                   isLoggedIn = false,
                                    hasNotifications = 0,
                                    hasMessages = 0,
                                }) {

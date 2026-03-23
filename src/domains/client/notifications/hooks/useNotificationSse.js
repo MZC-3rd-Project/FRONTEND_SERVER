@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { buildNotificationSseUrl } from "@/domains/client/notifications/api/notificationsApi";
@@ -10,24 +10,45 @@ import {
 import { mapNotificationEvent } from "@/domains/client/notifications/lib/notificationMappers";
 import { notificationKeys } from "@/domains/client/notifications/query/useNotificationQueries";
 
+const INITIAL_RETRY_DELAY_MS = 3_000;
+const MAX_RETRY_DELAY_MS = 30_000;
+
 export function useNotificationSse({ enabled = false } = {}) {
     const queryClient = useQueryClient();
     const seenNotificationIdsRef = useRef(new Set());
-    const [connectionState, setConnectionState] = useState("idle");
 
     useEffect(() => {
         if (!enabled || typeof window === "undefined" || typeof EventSource === "undefined") {
             return undefined;
         }
 
-        const eventSource = new EventSource(buildNotificationSseUrl(), { withCredentials: true });
+        let disposed = false;
+        let eventSource = null;
+        let retryTimerId = null;
+        let retryDelayMs = INITIAL_RETRY_DELAY_MS;
 
-        const handleConnected = () => {
-            setConnectionState("connected");
+        const clearRetryTimer = () => {
+            if (retryTimerId !== null) {
+                window.clearTimeout(retryTimerId);
+                retryTimerId = null;
+            }
         };
 
-        const handleHeartbeat = () => {
-            setConnectionState("connected");
+        const scheduleReconnect = () => {
+            if (disposed || retryTimerId !== null) {
+                return;
+            }
+
+            retryTimerId = window.setTimeout(() => {
+                retryTimerId = null;
+
+                if (disposed) {
+                    return;
+                }
+
+                retryDelayMs = Math.min(retryDelayMs * 2, MAX_RETRY_DELAY_MS);
+                connect();
+            }, retryDelayMs);
         };
 
         const handleNotification = (event) => {
@@ -45,7 +66,6 @@ export function useNotificationSse({ enabled = false } = {}) {
                 );
 
                 seenNotificationIdsRef.current.add(notification.id);
-                setConnectionState("connected");
 
                 if (alreadyCached) {
                     return;
@@ -64,19 +84,45 @@ export function useNotificationSse({ enabled = false } = {}) {
             }
         };
 
-        const handleError = () => {
-            setConnectionState("error");
+        const cleanupEventSource = () => {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
         };
 
-        eventSource.addEventListener("connected", handleConnected);
-        eventSource.addEventListener("heartbeat", handleHeartbeat);
-        eventSource.addEventListener("notification", handleNotification);
-        eventSource.onerror = handleError;
+        function connect() {
+            cleanupEventSource();
+
+            const nextEventSource = new EventSource(buildNotificationSseUrl(), { withCredentials: true });
+            eventSource = nextEventSource;
+
+            const handleConnected = () => {
+                retryDelayMs = INITIAL_RETRY_DELAY_MS;
+                clearRetryTimer();
+            };
+
+            const handleHeartbeat = () => {
+                retryDelayMs = INITIAL_RETRY_DELAY_MS;
+            };
+
+            const handleError = () => {
+                cleanupEventSource();
+                scheduleReconnect();
+            };
+
+            nextEventSource.addEventListener("connected", handleConnected);
+            nextEventSource.addEventListener("heartbeat", handleHeartbeat);
+            nextEventSource.addEventListener("notification", handleNotification);
+            nextEventSource.onerror = handleError;
+        }
+
+        connect();
 
         return () => {
-            eventSource.close();
+            disposed = true;
+            clearRetryTimer();
+            cleanupEventSource();
         };
     }, [enabled, queryClient]);
-
-    return enabled ? connectionState : "idle";
 }

@@ -52,13 +52,16 @@ export function useInfiniteNotificationsQuery(params = { size: 20 }, options = {
     });
 }
 
-export function useNotificationUnreadCountQuery() {
+export function useNotificationUnreadCountQuery(options = {}) {
+    const { enabled = true } = options;
+
     return useQuery({
         queryKey: notificationKeys.unreadCount(),
         queryFn: async () => {
             const payload = await fetchUnreadNotificationCount();
             return mapUnreadCountPayload(payload);
         },
+        enabled,
         retry: shouldRetryRequest,
         staleTime: 5_000,
     });
