@@ -48,14 +48,14 @@ export function useInfiniteNormalSalesQuery(params = {}) {
     });
 }
 
-export function useNormalSaleDetailQuery(saleId) {
+export function useNormalSaleDetailQuery({ itemId, itemType = "PRODUCT", salesChannel = "NORMAL" }) {
     return useQuery({
-        queryKey: salesKeys.detail(saleId),
+        queryKey: [...salesKeys.detail(itemId), itemType, salesChannel],
         queryFn: async () => {
-            const payload = await fetchNormalSaleDetail(saleId);
+            const payload = await fetchNormalSaleDetail({ itemId, itemType, salesChannel });
             return mapNormalSaleDetailPayload(payload);
         },
-        enabled: Boolean(saleId),
+        enabled: Boolean(itemId),
         retry: shouldRetryRequest,
         staleTime: 30_000,
     });

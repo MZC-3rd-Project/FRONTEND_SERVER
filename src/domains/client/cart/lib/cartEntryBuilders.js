@@ -80,6 +80,12 @@ function createCartAddPayload({
 }
 
 export function buildSaleCartItemInput(sale, { quantity = 1 } = {}) {
+    const saleStatus = String(sale?.statusCode ?? sale?.status ?? "").trim().toUpperCase();
+
+    if (saleStatus && saleStatus !== "ON_SALE") {
+        throw new Error("일반판매 상태의 상품만 장바구니에 담을 수 있습니다.");
+    }
+
     const optionIdentity = resolveDefaultOptionReference({
         stock: sale?.stock,
         item: sale?.item,

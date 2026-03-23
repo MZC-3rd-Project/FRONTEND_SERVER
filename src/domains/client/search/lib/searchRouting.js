@@ -14,6 +14,19 @@ function buildHotDealPath({ hotDealId, itemId, itemType }) {
     return query ? `/deals/${hotDealId}?${query}` : `/deals/${hotDealId}`;
 }
 
+function buildSalesPath({ itemId, itemType, salesChannel = "NORMAL" }) {
+    const params = new URLSearchParams();
+    if (itemType) {
+        params.set("itemType", itemType);
+    }
+    if (salesChannel) {
+        params.set("salesChannel", salesChannel);
+    }
+
+    const query = params.toString();
+    return query ? `/sales/${itemId}?${query}` : `/sales/${itemId}`;
+}
+
 export function buildFallbackCatalogPath(item) {
     if (item.salesChannel === "FUNDING") {
         return "/funding";
@@ -21,7 +34,11 @@ export function buildFallbackCatalogPath(item) {
     if (item.salesChannel === "HOT_DEAL") {
         return "/deals";
     }
-    return `/sales/${item.itemId}`;
+    return buildSalesPath({
+        itemId: item.itemId,
+        itemType: item.itemType,
+        salesChannel: "NORMAL",
+    });
 }
 
 export function buildDirectCatalogItemPath(item) {
@@ -41,7 +58,11 @@ export function buildDirectCatalogItemPath(item) {
         case "FUNDING":
             return item.activeCampaignId ? `/funding/${item.activeCampaignId}` : null;
         default:
-            return `/sales/${item.itemId}`;
+            return buildSalesPath({
+                itemId: item.itemId,
+                itemType: item.itemType,
+                salesChannel: "NORMAL",
+            });
     }
 }
 
@@ -69,7 +90,13 @@ function buildCatalogPathFromDetailPayload(payload, fallbackItem) {
         return "/funding";
     }
 
-    return itemId ? `/sales/${itemId}` : buildFallbackCatalogPath(fallbackItem);
+    return itemId
+        ? buildSalesPath({
+            itemId,
+            itemType,
+            salesChannel: "NORMAL",
+        })
+        : buildFallbackCatalogPath(fallbackItem);
 }
 
 export async function resolveCatalogItemPath(item) {

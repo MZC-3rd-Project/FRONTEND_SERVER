@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { AlertCircle, ArrowRight, Clock3, RefreshCw, Users } from "lucide-react";
+import { AlertCircle, Clock3, RefreshCw, Sparkles, Users } from "lucide-react";
 
 import StickySearchPanel from "@/components/search/StickySearchPanel.jsx";
 import CatalogSearchResults from "@/components/search/CatalogSearchResults";
@@ -229,64 +229,74 @@ export default function FundingListPage() {
                             <div className="space-y-4">
                                 <section className="grid gap-4 md:grid-cols-2">
                                     {campaigns.map((campaign) => (
-                                        <Card key={campaign.id} className="overflow-hidden border-border bg-card">
-                                            <img
-                                                src={campaign.thumbnailUrl || FUNDING_IMAGE_PLACEHOLDER}
-                                                alt={campaign.title}
-                                                className="h-44 w-full object-cover"
-                                            />
-                                            <CardHeader className="pb-2">
-                                                <div className="mb-2 flex items-center justify-between gap-2">
-                                                    <Badge className="rounded-full px-2 py-0.5 text-xs font-semibold">
-                                                        {campaign.category}
-                                                    </Badge>
-                                                    <Badge
-                                                        variant={getStatusVariant(campaign.statusCode)}
-                                                        className="rounded-full px-2 py-0.5 text-xs font-semibold"
-                                                    >
-                                                        {campaign.status}
-                                                    </Badge>
+                                        <Link
+                                            key={campaign.id}
+                                            to={`/funding/${encodeIdPathSegment(campaign.id)}`}
+                                            className="group relative block overflow-hidden rounded-[1.6rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                                        >
+                                            <Card className="overflow-hidden border-border/70 bg-card/95 transition duration-300 group-hover:-translate-y-1 group-hover:border-cyan-300/60 group-hover:shadow-[0_24px_65px_rgba(8,145,178,0.18)] dark:group-hover:border-cyan-300/30">
+                                                <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(251,191,36,0.12),transparent_38%)]" />
+                                                    <div className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/60 to-transparent transition-transform duration-700 group-hover:translate-x-[420%]" />
                                                 </div>
-                                                <CardTitle className="text-base leading-snug text-card-foreground">
-                                                    {campaign.title}
-                                                </CardTitle>
-                                                <p className="line-clamp-2 text-sm text-muted-foreground">
-                                                    {campaign.summary || "프로젝트 소개가 준비 중입니다."}
-                                                </p>
-                                                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <Clock3 className="h-3.5 w-3.5" />
-                                                    {campaign.deadlineText} · {campaign.leftLabel}
-                                                </p>
-                                            </CardHeader>
-                                            <CardContent className="space-y-3">
-                                                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                                                    <div
-                                                        className="h-full rounded-full bg-primary transition-all duration-500"
-                                                        style={{ width: `${Math.min(campaign.progressRate, 100)}%` }}
+
+                                                <div className="relative">
+                                                    <img
+                                                        src={campaign.thumbnailUrl || FUNDING_IMAGE_PLACEHOLDER}
+                                                        alt={campaign.title}
+                                                        className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                                                     />
+                                                    <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-zinc-950/75 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                                        <Sparkles className="h-3 w-3" />
+                                                        클릭해서 보기
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-sm font-semibold text-card-foreground">
-                                                        {campaign.currentAmountText}
+
+                                                <CardHeader className="relative pb-2">
+                                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                                        <Badge className="rounded-full px-2 py-0.5 text-xs font-semibold">
+                                                            {campaign.category}
+                                                        </Badge>
+                                                        <Badge
+                                                            variant={getStatusVariant(campaign.statusCode)}
+                                                            className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                                                        >
+                                                            {campaign.status}
+                                                        </Badge>
+                                                    </div>
+                                                    <CardTitle className="text-base leading-snug text-card-foreground">
+                                                        {campaign.title}
+                                                    </CardTitle>
+                                                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                                                        {campaign.summary || "프로젝트 소개가 준비 중입니다."}
                                                     </p>
-                                                    <p className="text-sm font-bold text-primary">
-                                                        {campaign.progressRateText}%
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center justify-between">
                                                     <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                                        <Clock3 className="h-3.5 w-3.5" />
+                                                        {campaign.deadlineText} · {campaign.leftLabel}
+                                                    </p>
+                                                </CardHeader>
+                                                <CardContent className="relative space-y-3">
+                                                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                                        <div
+                                                            className="h-full rounded-full bg-primary transition-all duration-500"
+                                                            style={{ width: `${Math.min(campaign.progressRate, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-sm font-semibold text-card-foreground">
+                                                            {campaign.currentAmountText}
+                                                        </p>
+                                                        <p className="text-sm font-bold text-primary">
+                                                            {campaign.progressRateText}%
+                                                        </p>
+                                                    </div>
+                                                    <p className="inline-flex items-center gap-1 text-xs text-cyan-700 transition-colors group-hover:text-cyan-800 dark:text-cyan-300 dark:group-hover:text-cyan-200">
                                                         <Users className="h-3.5 w-3.5" />
                                                         {campaign.supporterCount.toLocaleString()}명 참여
                                                     </p>
-                                                    <Button asChild size="sm" className="rounded-full px-4">
-                                                        <Link to={`/funding/${encodeIdPathSegment(campaign.id)}`}>
-                                                            자세히
-                                                            <ArrowRight className="h-3.5 w-3.5" />
-                                                        </Link>
-                                                    </Button>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                                </CardContent>
+                                            </Card>
+                                        </Link>
                                     ))}
                                 </section>
 

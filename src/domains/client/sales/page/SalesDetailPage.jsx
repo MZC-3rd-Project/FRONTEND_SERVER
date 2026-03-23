@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { AlertCircle, PackageCheck, RefreshCw, ShoppingCart, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,14 @@ function renderProductImage(imageUrl, title, className) {
 
 function SalesDetailPage() {
     const { saleId } = useParams();
-    const { data: sale, isLoading, isError, error, refetch, isFetching } = useNormalSaleDetailQuery(saleId);
+    const [searchParams] = useSearchParams();
+    const itemType = searchParams.get("itemType") ?? "PRODUCT";
+    const salesChannel = searchParams.get("salesChannel") ?? "NORMAL";
+    const { data: sale, isLoading, isError, error, refetch, isFetching } = useNormalSaleDetailQuery({
+        itemId: saleId,
+        itemType,
+        salesChannel,
+    });
     const addCartItemMutation = useAddCartItemMutation();
     const [cartFeedback, setCartFeedback] = useState(null);
 
@@ -117,6 +124,7 @@ function SalesDetailPage() {
     const store = sale.store;
     const reviews = sale.reviews;
     const canPurchase = sale.canPurchase;
+    const isNormalSale = sale.statusCode === "ON_SALE";
 
     const handleAddToCart = async () => {
         setCartFeedback(null);
@@ -162,9 +170,18 @@ function SalesDetailPage() {
                                 <p className="text-xs text-muted-foreground">현재 판매가</p>
                                 <p className="text-2xl font-bold text-foreground">{sale.priceText}</p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    남은 수량 {sale.stock.availableQuantity.toLocaleString()}개 · 판매 {sale.stock.soldQuantity.toLocaleString()}개 · {sale.status}
+                                    남은 수량 {sale.stock.availableQuantity.toLocaleString()}개
                                 </p>
                             </div>
+                            {!isNormalSale ? (
+                                <Alert>
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertTitle>일반판매 상품이 아닙니다</AlertTitle>
+                                    <AlertDescription>
+                                        이 상품은 현재 일반판매 상태가 아니라 장바구니에 담을 수 없습니다.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
 
                             <div className="flex flex-wrap gap-2 pt-1">
                                 {canPurchase ? (

@@ -4,11 +4,11 @@ import { MapPin, Pencil, Phone, User } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import AvatarDisplay from "@/components/profile/AvatarDisplay.jsx";
 import InfoCard from "@/components/profile/InfoCard.jsx";
+import { EMPTY_PROFILE } from "@/domains/client/profile/lib/profileMappers.js";
 import { useProfileQuery } from "@/domains/client/profile/query/useProfileQuery";
 
 function ProfilePage() {
-    const { data: profile, isLoading, isError } = useProfileQuery();
-    console.log("data: ",profile);
+    const { data: profile = EMPTY_PROFILE, isLoading, isError } = useProfileQuery();
 
     if (isLoading) {
         return (
@@ -52,9 +52,9 @@ function ProfilePage() {
 
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 leading-tight">
-                                {profile.nickname ?? "닉네임 없음"}
+                                {profile.nickname || "닉네임 없음"}
                             </h1>
-                            <p className="text-sm text-zinc-500 mt-0.5">{profile.email}</p>
+                            <p className="text-sm text-zinc-500 mt-0.5">{profile.email || "이메일 정보 없음"}</p>
                         </div>
 
                         <Button

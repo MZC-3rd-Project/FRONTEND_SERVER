@@ -1,10 +1,12 @@
+import { redirectToAuthLogin } from "./authNavigation.js";
+
 function createTokenManager() {
     let refreshPromise = null
     let config = {}
 
     function init(cfg = {}) {
         config = {
-            onRefreshFail: () => { window.location.href = '/login' },
+            onRefreshFail: () => { redirectToAuthLogin() },
             ...cfg,
         }
         if (!config.refreshFn) throw new Error('[TokenManager] refreshFn은 필수입니다.')

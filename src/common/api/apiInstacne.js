@@ -1,9 +1,14 @@
 import axios from "axios";
 import { tokenManager } from "./tokenManager.js";
 import { createAuthClient } from "./createAuthClient.js";
+import { redirectToAuthLogin } from "./authNavigation.js";
 
-const apiBaseURL = import.meta.env.VITE_API_URL || "http://localhost:8071/api";
 const isDev = import.meta.env.DEV;
+const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET;
+const useDevProxy = isDev && Boolean(proxyTarget);
+const apiBaseURL = useDevProxy
+    ? "/api"
+    : (import.meta.env.VITE_API_URL || "http://localhost:8071/api");
 let authRedirectInProgress = false;
 
 function quoteLargeIntegerLiterals(raw) {
@@ -126,8 +131,7 @@ function redirectToLoginOnUnauthorized(error) {
     }
 
     authRedirectInProgress = true;
-    const redirect = encodeURIComponent(currentPath);
-    window.location.assign(`/auth/login?redirect=${redirect}`);
+    redirectToAuthLogin(currentPath);
 
     return Promise.reject(error);
 }
@@ -149,9 +153,9 @@ const sharedConfig = {
 
 tokenManager.init({
     refreshFn: async () => {
-        await axios.post(`${apiBaseURL}/auth/refresh`, {}, { withCredentials: true });
+        await axios.post(`${apiBaseURL}/v1/auth/refresh`, {}, { withCredentials: true });
     },
-    onRefreshFail: () => { window.location.href = '/login'; },
+    onRefreshFail: () => { redirectToAuthLogin(); },
 });
 
 export const axiosInstance = createAuthClient({

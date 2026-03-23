@@ -1,13 +1,26 @@
-import {useRef} from "react";
-import {Button} from "@/components/ui/button.js";
-import { Camera, Trash2, Upload, User } from "lucide-react";
+import { useRef } from "react";
+import { Camera, LoaderCircle, Trash2, Upload, User } from "lucide-react";
 
-export default function AvatarUpload({ imageUrl, onImageChange, onImageRemove }) {
+import { Button } from "@/components/ui/button.js";
+
+export default function AvatarUpload({
+    imageUrl,
+    onImageChange,
+    onImageRemove,
+    disabled = false,
+    statusText = null,
+    errorText = null,
+}) {
     const fileRef = useRef(null);
 
     const handleFile = (e) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        e.target.value = "";
+
+        if (!file || disabled) {
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (ev) => onImageChange(ev.target.result, file);
         reader.readAsDataURL(file);
@@ -18,7 +31,11 @@ export default function AvatarUpload({ imageUrl, onImageChange, onImageRemove })
             {/* Avatar circle */}
             <div
                 className="relative w-24 h-24 cursor-pointer group"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => {
+                    if (!disabled) {
+                        fileRef.current?.click();
+                    }
+                }}
             >
                 <div className="w-24 h-24 rounded-full border-[3px] border-white/90 shadow-[0_8px_32px_rgba(31,38,66,0.18)] overflow-hidden bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center">
                     {imageUrl ? (
@@ -41,10 +58,11 @@ export default function AvatarUpload({ imageUrl, onImageChange, onImageRemove })
                     variant="outline"
                     size="sm"
                     className="h-8 rounded-full border-zinc-300 bg-white text-zinc-700 text-xs font-semibold px-4 hover:bg-zinc-100"
+                    disabled={disabled}
                     onClick={() => fileRef.current?.click()}
                 >
-                    <Upload className="w-3 h-3" />
-                    이미지 업로드
+                    {disabled ? <LoaderCircle className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                    {disabled ? "업로드 중..." : "이미지 업로드"}
                 </Button>
                 {imageUrl && (
                     <Button
@@ -52,6 +70,7 @@ export default function AvatarUpload({ imageUrl, onImageChange, onImageRemove })
                         variant="outline"
                         size="sm"
                         className="h-8 rounded-full border-red-200 bg-red-50 text-red-500 text-xs font-semibold px-4 hover:bg-red-100"
+                        disabled={disabled}
                         onClick={onImageRemove}
                     >
                         <Trash2 className="w-3 h-3" />
@@ -59,7 +78,11 @@ export default function AvatarUpload({ imageUrl, onImageChange, onImageRemove })
                     </Button>
                 )}
             </div>
-            <p className="text-[11px] text-zinc-400">JPG, PNG, WEBP · 최대 5MB</p>
+            <div className="space-y-1 text-center">
+                <p className="text-[11px] text-zinc-400">JPG, PNG, WEBP · 최대 5MB</p>
+                {statusText ? <p className="text-[11px] font-medium text-primary">{statusText}</p> : null}
+                {errorText ? <p className="text-[11px] font-medium text-destructive">{errorText}</p> : null}
+            </div>
         </div>
     );
 }

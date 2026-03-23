@@ -32,37 +32,39 @@ export function mapNormalSaleListPayload(payload) {
     const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
 
     return {
-        items: items.map((item) => {
-            const basePrice = toNullableNumber(item?.price?.base ?? item?.basePrice);
-            const effectivePrice = toNullableNumber(
-                item?.price?.effective ?? item?.effectivePrice ?? item?.price
-            );
-            const statusCode = toText(item?.status, "ON_SALE").toUpperCase();
-            const stock = toNullableNumber(item?.stock);
-            const saleId = toId(item?.saleId ?? item?.id ?? item?.itemId);
+        items: items
+            .map((item) => {
+                const basePrice = toNullableNumber(item?.price?.base ?? item?.basePrice);
+                const effectivePrice = toNullableNumber(
+                    item?.price?.effective ?? item?.effectivePrice ?? item?.price
+                );
+                const statusCode = toText(item?.status, "ON_SALE").toUpperCase();
+                const stock = toNullableNumber(item?.stock ?? item?.availableStock);
+                const saleId = toId(item?.saleId ?? item?.id ?? item?.itemId);
 
-            return {
-                id: saleId,
-                saleId,
-                itemId: toId(item?.itemId ?? item?.saleId ?? item?.id),
-                title: toText(item?.title, "이름 없는 일반판매 상품"),
-                category: toText(item?.category, "기타"),
-                itemType: toText(item?.itemType, "PRODUCT"),
-                itemTypeLabel: mapItemTypeLabel(item?.itemType),
-                salesChannel: toText(item?.salesChannel, "NORMAL"),
-                statusCode,
-                status: mapSaleStatusLabel(statusCode),
-                price: effectivePrice,
-                priceText: formatPrice(effectivePrice),
-                basePrice,
-                basePriceText: basePrice !== null && basePrice !== effectivePrice ? formatPrice(basePrice) : null,
-                thumbnailUrl: toText(item?.thumbnailUrl, ""),
-                stock: stock ?? 0,
-                soldOut: stock === 0 || statusCode === "SOLD_OUT" || statusCode === "ENDED",
-                activeCampaignId: toId(item?.activeCampaignId ?? item?.campaignId),
-                storeName: toText(item?.storeName, ""),
-            };
-        }),
+                return {
+                    id: saleId,
+                    saleId,
+                    itemId: toId(item?.itemId ?? item?.saleId ?? item?.id),
+                    title: toText(item?.title, "이름 없는 일반판매 상품"),
+                    category: toText(item?.category, "기타"),
+                    itemType: toText(item?.itemType, "PRODUCT"),
+                    itemTypeLabel: mapItemTypeLabel(item?.itemType),
+                    salesChannel: toText(item?.salesChannel, "NORMAL"),
+                    statusCode,
+                    status: mapSaleStatusLabel(statusCode),
+                    price: effectivePrice,
+                    priceText: formatPrice(effectivePrice),
+                    basePrice,
+                    basePriceText: basePrice !== null && basePrice !== effectivePrice ? formatPrice(basePrice) : null,
+                    thumbnailUrl: toText(item?.thumbnailUrl, ""),
+                    stock,
+                    soldOut: (stock !== null && stock === 0) || statusCode === "SOLD_OUT" || statusCode === "ENDED",
+                    activeCampaignId: toId(item?.activeCampaignId ?? item?.campaignId),
+                    storeName: toText(item?.storeName, ""),
+                };
+            })
+            .filter((item) => item.statusCode === "ON_SALE"),
         nextCursor: payload?.nextCursor ?? null,
         totalCount: payload?.totalCount ?? null,
     };
@@ -71,7 +73,11 @@ export function mapNormalSaleListPayload(payload) {
 export function mapNormalSaleDetailPayload(raw = {}) {
     const saleId = toId(raw?.saleId ?? raw?.id ?? raw?.itemId);
     const stock = mapStock(raw?.stock);
-    const item = mapItem(raw?.item, {
+    const itemSource =
+        raw?.item && typeof raw.item === "object"
+            ? raw.item
+            : raw;
+    const item = mapItem(itemSource, {
         itemId: toId(raw?.itemId),
         itemType: raw?.itemType,
         title: raw?.title,
@@ -109,7 +115,7 @@ export function mapNormalSaleDetailPayload(raw = {}) {
         },
         reviews,
         checkout: raw?.checkout ?? null,
-        canPurchase: !stock.soldOut && statusCode !== "ENDED",
+        canPurchase: statusCode === "ON_SALE" && !stock.soldOut,
         storeName: toText(raw?.storeName, ""),
     };
 }

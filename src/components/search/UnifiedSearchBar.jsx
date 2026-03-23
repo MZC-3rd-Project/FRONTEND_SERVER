@@ -99,6 +99,7 @@ export default function UnifiedSearchBar({
                         onValueChange={onKeywordChange}
                         onSubmit={(nextKeyword) => onSubmit?.(nextKeyword)}
                         placeholder={placeholder}
+                        detachedPanel
                         inputClassName={cn(
                             "h-13 rounded-[1.4rem] border-border bg-background text-base shadow-none",
                             compact && "h-12"
