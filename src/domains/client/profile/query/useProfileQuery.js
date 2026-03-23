@@ -9,7 +9,7 @@ export const profileKeys = {
     me: () => [...profileKeys.all, "me"],
 };
 
-export function useProfileQuery() {
+export function useProfileQuery(options = {}) {
     return useQuery({
         queryKey: profileKeys.me(),
         queryFn: async () => {
@@ -18,6 +18,7 @@ export function useProfileQuery() {
         },
         retry: shouldRetryRequest,
         staleTime: 60_000,
+        ...options,
     });
 }
 

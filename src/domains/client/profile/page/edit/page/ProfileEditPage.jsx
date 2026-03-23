@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Mail, MapPin, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
+import { useAuthStore } from "@/common/store/useAuthStore.js";
 import AvatarUpload from "@/components/profile/edit/AvartarUpload.jsx";
 import FormField from "@/components/profile/edit/FormField.jsx";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,14 @@ import { profileSchema } from "@/domains/client/profile/actions/schema/schema.js
 import {
     confirmMediaUpload,
     createMediaUploadIntent,
+    fetchProfile,
     updateProfile,
     uploadFileToPresignedUrl,
 } from "@/domains/client/profile/api/profileApi.js";
 import {
     buildProfileUpdatePayload,
     EMPTY_PROFILE,
+    normalizeProfile,
 } from "@/domains/client/profile/lib/profileMappers.js";
 import { profileKeys, useProfileQuery } from "@/domains/client/profile/query/useProfileQuery.js";
 
@@ -55,7 +58,11 @@ function validateProfileImageFile(file) {
 
 export default function ProfileEditPage() {
     const queryClient = useQueryClient();
-    const { data: profile = EMPTY_PROFILE, isLoading, isError, error } = useProfileQuery();
+    const setUser = useAuthStore((state) => state.setUser);
+    const { data: profile = EMPTY_PROFILE, isLoading, isError, error } = useProfileQuery({
+        staleTime: 0,
+        refetchOnMount: "always",
+    });
 
     const [draftForm, setDraftForm] = useState({ nickname: null, phone: null });
     const [previewOverride, setPreviewOverride] = useState(undefined);
@@ -69,6 +76,12 @@ export default function ProfileEditPage() {
         phone: draftForm.phone ?? profile.phone,
     };
     const previewUrl = previewOverride !== undefined ? previewOverride : profile.imageUrl;
+
+    useEffect(() => {
+        if (profile?.userId) {
+            setUser(profile);
+        }
+    }, [profile, setUser]);
 
     const uploadImageMutation = useMutation({
         mutationFn: async (file) => {
@@ -182,15 +195,16 @@ export default function ProfileEditPage() {
         try {
             await saveProfileMutation.mutateAsync(payload);
 
-            const nextProfile = {
-                ...profile,
-                nickname: validationResult.data.nickname,
-                phone: validationResult.data.phone,
-                imageUrl: imageChange.hasChanged ? previewUrl : profile.imageUrl,
-                mediaId: imageChange.hasChanged ? imageChange.mediaId : profile.mediaId,
-            };
+            const nextProfile = await queryClient.fetchQuery({
+                queryKey: profileKeys.me(),
+                queryFn: async () => {
+                    const latestPayload = await fetchProfile();
+                    return normalizeProfile(latestPayload);
+                },
+                staleTime: 0,
+            });
 
-            queryClient.setQueryData(profileKeys.me(), nextProfile);
+            setUser(nextProfile);
             setDraftForm({ nickname: null, phone: null });
             setPreviewOverride(undefined);
             setImageChange({
