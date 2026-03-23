@@ -12,6 +12,7 @@ import { notificationKeys } from "@/domains/client/notifications/query/useNotifi
 
 const INITIAL_RETRY_DELAY_MS = 3_000;
 const MAX_RETRY_DELAY_MS = 30_000;
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 export function useNotificationSse({ enabled = false } = {}) {
     const queryClient = useQueryClient();
@@ -26,6 +27,7 @@ export function useNotificationSse({ enabled = false } = {}) {
         let eventSource = null;
         let retryTimerId = null;
         let retryDelayMs = INITIAL_RETRY_DELAY_MS;
+        let consecutiveFailureCount = 0;
 
         const clearRetryTimer = () => {
             if (retryTimerId !== null) {
@@ -36,6 +38,13 @@ export function useNotificationSse({ enabled = false } = {}) {
 
         const scheduleReconnect = () => {
             if (disposed || retryTimerId !== null) {
+                return;
+            }
+
+            if (consecutiveFailureCount >= MAX_CONSECUTIVE_FAILURES) {
+                console.warn(
+                    `[NotificationSse] stopped reconnecting after ${consecutiveFailureCount} consecutive failures.`
+                );
                 return;
             }
 
@@ -98,15 +107,18 @@ export function useNotificationSse({ enabled = false } = {}) {
             eventSource = nextEventSource;
 
             const handleConnected = () => {
+                consecutiveFailureCount = 0;
                 retryDelayMs = INITIAL_RETRY_DELAY_MS;
                 clearRetryTimer();
             };
 
             const handleHeartbeat = () => {
+                consecutiveFailureCount = 0;
                 retryDelayMs = INITIAL_RETRY_DELAY_MS;
             };
 
             const handleError = () => {
+                consecutiveFailureCount += 1;
                 cleanupEventSource();
                 scheduleReconnect();
             };

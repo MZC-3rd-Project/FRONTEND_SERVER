@@ -5,18 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { normalizeAuthRedirectPath } from "@/common/api/authNavigation.js";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 
 function resolveRedirectPath(rawRedirect) {
-    if (typeof rawRedirect !== "string" || !rawRedirect.startsWith("/")) {
-        return "/";
-    }
-
-    if (rawRedirect.startsWith("/auth/login")) {
-        return "/";
-    }
-
-    return rawRedirect;
+    return normalizeAuthRedirectPath(rawRedirect);
 }
 
 function LoginPage() {

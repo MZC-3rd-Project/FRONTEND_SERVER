@@ -1,20 +1,17 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { AlertCircle, PackageCheck, RefreshCw, ShoppingCart, Store } from "lucide-react";
+import { AlertCircle, RefreshCw, ShoppingCart, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
+import DetailReviewSection from "@/components/commerce/DetailReviewSection.jsx";
 import { buildSaleCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
 import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
 import { SALES_IMAGE_PLACEHOLDER } from "@/domains/client/sales/lib/salesMappers";
 import { useNormalSaleDetailQuery } from "@/domains/client/sales/query/useSalesQueries";
-
-function ratingText(rating) {
-    return "★".repeat(rating) + "☆".repeat(5 - rating);
-}
 
 function SalesDetailSkeleton() {
     return (
@@ -274,28 +271,13 @@ function SalesDetailPage() {
                     )}
                 </section>
 
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <PackageCheck className="h-4 w-4 text-primary" />
-                            구매 후기
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        {reviews.length > 0 ? (
-                            reviews.map((review) => (
-                                <div key={review.id} className="rounded-xl border border-border bg-accent/40 p-3 text-sm">
-                                    <p className="font-semibold text-foreground">
-                                        {review.user} <span className="ml-1 text-yellow-400">{ratingText(review.rating)}</span>
-                                    </p>
-                                    <p className="mt-1 text-muted-foreground">{review.comment}</p>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground">등록된 구매 후기가 없습니다.</p>
-                        )}
-                    </CardContent>
-                </Card>
+                <DetailReviewSection
+                    title="구매 후기"
+                    averageRating={sale.averageRating}
+                    reviewCount={sale.reviewCount}
+                    reviews={reviews}
+                    emptyText="등록된 구매 후기가 없습니다."
+                />
             </div>
 
             <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">

@@ -143,16 +143,54 @@ export function mapStock(rawStock = {}, fallback = {}) {
     };
 }
 
+function buildReviewAuthorLabel(review = {}) {
+    const explicitName =
+        toText(review?.user)
+        || toText(review?.userNickname)
+        || toText(review?.nickname)
+        || toText(review?.authorName);
+
+    if (explicitName) {
+        return explicitName;
+    }
+
+    const userId = toId(review?.userId);
+    return userId ? `사용자 ${String(userId).slice(-6)}` : "사용자";
+}
+
+function mapReviewImages(rawImages) {
+    if (!Array.isArray(rawImages)) {
+        return [];
+    }
+
+    return rawImages
+        .map((image, index) => ({
+            id: `${toId(image?.mediaId, "review-image")}-${index}`,
+            mediaId: toId(image?.mediaId),
+            mediaUrl: toText(image?.mediaUrl),
+            sortOrder: toNumber(image?.sortOrder, index),
+        }))
+        .filter((image) => image.mediaUrl);
+}
+
 export function mapReviews(raw) {
     if (!Array.isArray(raw)) {
         return [];
     }
 
     return raw.map((review, index) => ({
-        id: review?.id ?? `${review?.user ?? "reviewer"}-${index}`,
-        user: toText(review?.user, "사용자"),
+        id: review?.id ?? `${review?.userId ?? review?.user ?? "reviewer"}-${index}`,
+        orderId: toId(review?.orderId),
+        itemId: toId(review?.itemId),
+        userId: toId(review?.userId),
+        user: buildReviewAuthorLabel(review),
         rating: Math.max(0, Math.min(5, toNumber(review?.rating, 0))),
-        comment: toText(review?.comment, "리뷰 내용이 없습니다."),
+        title: toText(review?.title),
+        content: toText(review?.content ?? review?.comment, "리뷰 내용이 없습니다."),
+        comment: toText(review?.content ?? review?.comment, "리뷰 내용이 없습니다."),
+        createdAt: review?.createdAt ?? null,
+        createdAtLabel: formatDateTimeLabel(review?.createdAt),
+        images: mapReviewImages(review?.images),
     }));
 }
 

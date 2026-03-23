@@ -1,4 +1,5 @@
 export const EMPTY_PROFILE = Object.freeze({
+    userId: null,
     email: "",
     nickname: "",
     phone: "",
@@ -37,6 +38,7 @@ export function normalizeProfile(raw) {
 
     return {
         ...EMPTY_PROFILE,
+        userId: toNullableId(raw?.userId),
         email: toText(raw?.email),
         nickname: toText(raw?.nickname),
         phone: toText(raw?.phone),

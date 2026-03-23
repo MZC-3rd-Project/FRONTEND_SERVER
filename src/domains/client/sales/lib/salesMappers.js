@@ -89,6 +89,8 @@ export function mapNormalSaleDetailPayload(raw = {}) {
     });
     const reviews = mapReviews(raw?.reviews ?? item.reviews);
     const statusCode = toText(raw?.status, "ON_SALE").toUpperCase();
+    const averageRating = toNullableNumber(raw?.averageRating ?? raw?.item?.averageRating);
+    const reviewCount = toNullableNumber(raw?.reviewCount) ?? reviews.length;
 
     return {
         id: saleId,
@@ -105,12 +107,16 @@ export function mapNormalSaleDetailPayload(raw = {}) {
         thumbnailUrl: toText(raw?.thumbnailUrl, item.thumbnailUrl),
         price: toNullableNumber(raw?.price ?? item.price),
         priceText: formatPrice(raw?.price ?? item.price),
+        averageRating,
+        reviewCount,
         store: mapStore(raw?.store, { name: raw?.storeName }),
         stock,
         originFunding: null,
         item: {
             ...item,
             thumbnailUrl: item.thumbnailUrl || toText(raw?.thumbnailUrl, ""),
+            averageRating,
+            reviewCount,
             reviews,
         },
         reviews,

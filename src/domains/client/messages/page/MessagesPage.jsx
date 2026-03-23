@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuthStore } from "@/common/store/useAuthStore.js";
 import {
     Empty,
     EmptyContent,
@@ -136,6 +137,7 @@ function MessageBubble({ message }) {
 
 function MessagesPage() {
     const queryClient = useQueryClient();
+    const currentUserId = useAuthStore((state) => state.user?.userId ?? null);
     const [searchParams, setSearchParams] = useSearchParams();
     const [draftState, setDraftState] = useState({ roomId: "", value: "" });
     const [liveMessageState, setLiveMessageState] = useState({ roomId: "", messages: [] });
@@ -144,7 +146,13 @@ function MessagesPage() {
     const lastReadMessageIdRef = useRef("");
 
     const selectedRoomId = searchParams.get("roomId") ?? "";
-    const ownSenderIdSet = useMemo(() => new Set(knownSelfSenderIds), [knownSelfSenderIds]);
+    const ownSenderIdSet = useMemo(() => {
+        const senderIds = currentUserId
+            ? [...knownSelfSenderIds, String(currentUserId)]
+            : knownSelfSenderIds;
+
+        return new Set(senderIds);
+    }, [currentUserId, knownSelfSenderIds]);
     const draft = draftState.roomId === selectedRoomId ? draftState.value : "";
     const liveMessages = useMemo(
         () => (liveMessageState.roomId === selectedRoomId ? liveMessageState.messages : []),
@@ -262,9 +270,16 @@ function MessagesPage() {
             await invalidateRooms();
         },
         onRoomMessage: async (message) => {
-            const fromSelf = ownSenderIdSet.has(message.senderId) || liveMessages.some(
-                (candidate) => candidate.messageId && candidate.messageId === message.messageId && candidate.fromSelf
-            );
+            const fromCurrentUser =
+                Boolean(currentUserId)
+                && Boolean(message.senderId)
+                && String(message.senderId) === String(currentUserId);
+            const fromSelf =
+                fromCurrentUser
+                || ownSenderIdSet.has(message.senderId)
+                || liveMessages.some(
+                    (candidate) => candidate.messageId && candidate.messageId === message.messageId && candidate.fromSelf
+                );
 
             if (fromSelf) {
                 rememberSelfSenderId(message.senderId);
@@ -380,7 +395,7 @@ function MessagesPage() {
             roomId: selectedRoomId,
             messageId: "",
             clientMessageId,
-            senderId: "",
+            senderId: currentUserId ? String(currentUserId) : "",
             messageType: "CHAT",
             content,
             createdAt: new Date().toISOString(),

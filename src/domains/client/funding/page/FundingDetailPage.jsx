@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
+import DetailReviewSection from "@/components/commerce/DetailReviewSection.jsx";
 import {
     FUNDING_IMAGE_PLACEHOLDER,
 } from "@/domains/client/funding/lib/fundingMappers";
@@ -15,10 +16,6 @@ function statusVariant(statusCode) {
     if (statusCode === "ACTIVE") return "default";
     if (statusCode === "SUCCEEDED") return "secondary";
     return "destructive";
-}
-
-function ratingText(rating) {
-    return "★".repeat(Math.max(0, Math.min(5, Math.round(rating)))) + "☆".repeat(5 - Math.max(0, Math.min(5, Math.round(rating))));
 }
 
 function FundingDetailSkeleton() {
@@ -118,6 +115,7 @@ function FundingDetailPage() {
     const store = campaign.store;
     const storeLink = store.id ? `/store/${store.id}` : "/store";
     const product = campaign.item;
+    const reviews = campaign.reviews ?? product.reviews ?? [];
     const canSupport = campaign.isSupportable && campaign.rewardOptions.some((reward) => !reward.soldOut);
 
     return (
@@ -265,25 +263,13 @@ function FundingDetailPage() {
                 </section>
 
                 <section>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">제품 리뷰</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {product.reviews.length > 0 ? (
-                                product.reviews.map((review) => (
-                                    <div key={review.id} className="rounded-xl border border-border bg-accent/40 p-3 text-sm">
-                                        <p className="font-semibold text-foreground">
-                                            {review.user} <span className="ml-1 text-yellow-400">{ratingText(review.rating)}</span>
-                                        </p>
-                                        <p className="mt-1 text-muted-foreground">{review.comment}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">등록된 리뷰가 없습니다.</p>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <DetailReviewSection
+                        title="제품 리뷰"
+                        averageRating={campaign.averageRating}
+                        reviewCount={campaign.reviewCount}
+                        reviews={reviews}
+                        emptyText="등록된 리뷰가 없습니다."
+                    />
                 </section>
             </div>
 

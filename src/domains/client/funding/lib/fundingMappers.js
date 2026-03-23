@@ -191,10 +191,27 @@ function mapReviews(raw) {
     }
 
     return raw.map((review, index) => ({
-        id: review?.id ?? `${review?.user ?? "reviewer"}-${index}`,
-        user: toText(review?.user, "사용자"),
+        id: review?.id ?? `${review?.userId ?? review?.user ?? "reviewer"}-${index}`,
+        orderId: toId(review?.orderId),
+        itemId: toId(review?.itemId),
+        userId: toId(review?.userId),
+        user: toText(review?.user, review?.userId ? `사용자 ${String(review.userId).slice(-6)}` : "사용자"),
         rating: Math.max(0, Math.min(5, toNumber(review?.rating, 0))),
-        comment: toText(review?.comment, "리뷰 내용이 없습니다."),
+        title: toText(review?.title),
+        content: toText(review?.content ?? review?.comment, "리뷰 내용이 없습니다."),
+        comment: toText(review?.content ?? review?.comment, "리뷰 내용이 없습니다."),
+        createdAt: review?.createdAt ?? null,
+        createdAtLabel: formatDateTimeLabel(review?.createdAt),
+        images: Array.isArray(review?.images)
+            ? review.images
+                .map((image, imageIndex) => ({
+                    id: `${toId(image?.mediaId, "review-image")}-${imageIndex}`,
+                    mediaId: toId(image?.mediaId),
+                    mediaUrl: toText(image?.mediaUrl),
+                    sortOrder: toNumber(image?.sortOrder, imageIndex),
+                }))
+                .filter((image) => image.mediaUrl)
+            : [],
     }));
 }
 
@@ -289,6 +306,9 @@ export function mapFundingCampaignDetailPayload(raw = {}) {
         reviews: raw?.reviews ?? raw?.productReviews,
     });
     const rewardOptions = mapRewardOptions(raw, item, stock);
+    const reviews = mapReviews(raw?.reviews ?? item.reviews);
+    const averageRating = toNullableNumber(raw?.averageRating ?? raw?.item?.averageRating);
+    const reviewCount = toNullableNumber(raw?.reviewCount) ?? reviews.length;
 
     return {
         id: toId(raw?.campaignId ?? raw?.id),
@@ -312,6 +332,8 @@ export function mapFundingCampaignDetailPayload(raw = {}) {
         leftLabel: toText(raw?.leftLabel, "일정 계산 중"),
         supporterCount: toNumber(raw?.supporterCount ?? raw?.supporters, 0),
         isSupportable: Boolean(raw?.isSupportable ?? String(raw?.status).toUpperCase() === "ACTIVE"),
+        averageRating,
+        reviewCount,
         rewardOptions,
         store,
         stock,
@@ -319,8 +341,11 @@ export function mapFundingCampaignDetailPayload(raw = {}) {
             ...item,
             title: item.title || toText(raw?.title, "상품 정보 준비 중"),
             thumbnailUrl: item.thumbnailUrl || toText(raw?.thumbnailUrl, ""),
-            reviews: mapReviews(raw?.reviews ?? item.reviews),
+            averageRating,
+            reviewCount,
+            reviews,
         },
+        reviews,
         checkout: raw?.checkout ?? null,
     };
 }
