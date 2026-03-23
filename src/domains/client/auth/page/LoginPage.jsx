@@ -7,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeAuthRedirectPath } from "@/common/api/authNavigation.js";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
+import { fetchProfile } from "@/domains/client/profile/api/profileApi.js";
+import { normalizeProfile } from "@/domains/client/profile/lib/profileMappers.js";
 
 function resolveRedirectPath(rawRedirect) {
     return normalizeAuthRedirectPath(rawRedirect);
@@ -54,7 +56,12 @@ function LoginPage() {
                 return;
             }
 
-            login({ username: body.get("username") });
+            try {
+                const profilePayload = await fetchProfile({ skipAuthRedirect: true });
+                login(normalizeProfile(profilePayload));
+            } catch {
+                login({ email: body.get("username") });
+            }
             navigate(redirectPath, { replace: true });
         } catch (error) {
             setSubmitError(error instanceof Error ? error.message : "로그인 요청에 실패했습니다.");

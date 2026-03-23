@@ -14,6 +14,7 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/common/store/useAuthStore.js";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -42,6 +43,15 @@ function formatBadgeCount(count) {
     }
 
     return normalized > 99 ? "99+" : String(normalized);
+}
+
+function buildAvatarFallbackLabel(user) {
+    const source =
+        user?.nickname
+        || user?.email
+        || "사용자";
+
+    return source.trim().slice(0, 1).toUpperCase();
 }
 
 function NotificationDropdown({
@@ -199,9 +209,13 @@ export function UserNavigation({
                                    hasNotifications,
                                    hasMessages,
                                }) {
+    const user = useAuthStore((state) => state.user);
     const messageBadge = formatBadgeCount(hasMessages);
     const markReadMutation = useMarkNotificationReadMutation();
     const markAllMutation = useMarkAllNotificationsReadMutation();
+    const displayName = user?.nickname || "사용자";
+    const secondaryText = user?.email || (user?.userId ? `userId ${user.userId}` : "프로필 불러오는 중");
+    const avatarFallback = buildAvatarFallbackLabel(user);
 
     return (
         <div className="flex items-center gap-2">
@@ -225,16 +239,16 @@ export function UserNavigation({
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Avatar>
-                        <AvatarImage src="https://github.com/ANchangwan.png" />
+                        <AvatarImage src={user?.imageUrl || undefined} />
                         <AvatarFallback>
-                            <span className="text-xs">Loading...</span>
+                            <span className="text-xs">{avatarFallback}</span>
                         </AvatarFallback>
                     </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                     <DropdownMenuLabel className="flex flex-col gap-1">
-                        <span className="font-medium">John Doe</span>
-                        <span className="text-xs text-muted-foreground">@username</span>
+                        <span className="font-medium">{displayName}</span>
+                        <span className="text-xs text-muted-foreground">{secondaryText}</span>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
