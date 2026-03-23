@@ -1,6 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { AlertCircle, BadgeCheck, CreditCard, MapPin, RefreshCw, ShieldCheck, TicketPercent } from "lucide-react";
+import {
+    AlertCircle,
+    CreditCard,
+    Loader2,
+    MapPin,
+    RefreshCw,
+    ShieldCheck,
+    TicketPercent,
+} from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button";
@@ -10,6 +18,16 @@ import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { coupons, paymentMethods, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
+import {
+    useReserveCheckout,
+    useSubmitCheckout,
+    useCancelCheckout,
+} from "@/domains/client/checkout/query/useCheckoutQueries";
+import {
+    getCheckoutErrorMessage,
+    isStockInsufficient,
+    isReservationExpired,
+} from "@/domains/client/checkout/lib/checkoutErrors";
 
 function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     if (!selectedCoupon) return 0;
@@ -38,10 +56,10 @@ function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, t
     const { store, product } = result;
     if (productType === "ticket") {
         const parsedQuantity = Number(ticketQuantity);
-        const requestedQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? Math.floor(parsedQuantity) : 1;
+        const requestedQuantity =
+            Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? Math.floor(parsedQuantity) : 1;
         const selectedTier =
-            product.tiers.find((tier) => tier.grade === ticketGrade) ??
-            product.tiers[0];
+            product.tiers.find((tier) => tier.grade === ticketGrade) ?? product.tiers[0];
         const maxQuantity = Math.max(0, selectedTier?.remaining ?? 0);
         if (maxQuantity <= 0) return null;
 
@@ -52,7 +70,9 @@ function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, t
             storeId: store.id,
             storeName: store.name,
             name: product.name,
-            option: selectedTier ? `${selectedTier.grade} · ${product.eventDate}` : product.eventDate,
+            option: selectedTier
+                ? `${selectedTier.grade} · ${product.eventDate}`
+                : product.eventDate,
             thumbnail: product.thumbnail,
             quantity: safeQuantity,
             unitPrice: selectedTier ? parsePriceText(selectedTier.price) : 0,
@@ -79,7 +99,9 @@ function mapCartItemToCheckoutItem(item) {
         storeId: item.storeId,
         storeName: item.storeName,
         name: item.itemTitle,
-        option: item.salesStatus ? `${item.channelTypeLabel} · ${item.salesStatus}` : item.channelTypeLabel,
+        option: item.salesStatus
+            ? `${item.channelTypeLabel} · ${item.salesStatus}`
+            : item.channelTypeLabel,
         thumbnail: item.thumbnailUrl,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -104,6 +126,7 @@ function CheckoutPage() {
     const directProductId = searchParams.get("productId") ?? "";
     const directTicketGrade = searchParams.get("ticketGrade") ?? "";
     const directTicketQuantity = searchParams.get("ticketQuantity") ?? "1";
+
     const {
         data: cart,
         isLoading: isCartLoading,
@@ -115,26 +138,43 @@ function CheckoutPage() {
         enabled: !directMode,
     });
 
+    // 체크아웃 API mutations
+    const reserveMutation = useReserveCheckout();
+    const submitMutation = useSubmitCheckout();
+    const cancelMutation = useCancelCheckout();
+
+    // 체크아웃 상태
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
+    const orderIdRef = useRef(null);
+
     const directItem = useMemo(
         () =>
             directMode
                 ? buildDirectCheckoutItem(
-                    directStoreId,
-                    directProductType,
-                    directProductId,
-                    directTicketGrade,
-                    directTicketQuantity
-                )
+                      directStoreId,
+                      directProductType,
+                      directProductId,
+                      directTicketGrade,
+                      directTicketQuantity,
+                  )
                 : null,
-        [directMode, directProductId, directProductType, directStoreId, directTicketGrade, directTicketQuantity]
+        [
+            directMode,
+            directProductId,
+            directProductType,
+            directStoreId,
+            directTicketGrade,
+            directTicketQuantity,
+        ],
     );
     const cartCheckoutItems = useMemo(
         () => (directMode ? [] : (cart?.selectedItems ?? []).map(mapCartItemToCheckoutItem)),
-        [cart?.selectedItems, directMode]
+        [cart?.selectedItems, directMode],
     );
     const checkoutItems = useMemo(
         () => (directMode ? (directItem ? [directItem] : []) : cartCheckoutItems),
-        [cartCheckoutItems, directItem, directMode]
+        [cartCheckoutItems, directItem, directMode],
     );
     const directBackLink = useMemo(() => {
         if (!directItem) return "/cart";
@@ -150,42 +190,105 @@ function CheckoutPage() {
         return `/store/${directItem.storeId}/product/${directProductType}/${directProductId}${ticketQuery}`;
     }, [directItem, directProductId, directProductType, directTicketGrade, directTicketQuantity]);
 
+    // 폼 상태 — 배송지/쿠폰/결제수단/포인트 (mock 기반)
     const [selectedAddressId, setSelectedAddressId] = useState(shippingAddresses[0]?.id ?? "");
     const [selectedCouponId, setSelectedCouponId] = useState("");
     const [selectedPaymentId, setSelectedPaymentId] = useState(paymentMethods[0]?.id ?? "");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
 
+    // 금액 계산
     const subtotal = useMemo(
         () => checkoutItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
-        [checkoutItems]
+        [checkoutItems],
     );
     const shippingFee = subtotal >= 70000 ? 0 : 3500;
     const selectedCoupon = coupons.find((coupon) => coupon.id === selectedCouponId);
     const couponDiscount = calculateCouponDiscount(selectedCoupon, subtotal, shippingFee);
     const maxUsablePoint = Math.min(12000, subtotal - couponDiscount);
-    const safeUsedPoint = Math.min(Math.max(0, Number(usedPoint) || 0), Math.max(0, maxUsablePoint));
+    const safeUsedPoint = Math.min(
+        Math.max(0, Number(usedPoint) || 0),
+        Math.max(0, maxUsablePoint),
+    );
     const finalAmount = Math.max(0, subtotal + shippingFee - couponDiscount - safeUsedPoint);
 
-    const selectedAddress = shippingAddresses.find((address) => address.id === selectedAddressId) ?? shippingAddresses[0];
-    const selectedPayment = paymentMethods.find((method) => method.id === selectedPaymentId) ?? paymentMethods[0];
-    const isCheckoutReady = checkoutItems.length > 0;
+    const selectedAddress =
+        shippingAddresses.find((address) => address.id === selectedAddressId) ??
+        shippingAddresses[0];
+    const selectedPayment =
+        paymentMethods.find((method) => method.id === selectedPaymentId) ?? paymentMethods[0];
+    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting;
 
-    const submitCheckout = ({ success }) => {
+    // 체크아웃 3단계: reservations → (quotes 생략, 프론트 계산) → submit
+    const handleSubmitCheckout = async () => {
         if (!isCheckoutReady) return;
 
-        const orderId = `DM${Date.now()}`;
-        if (success) {
-            navigate(`/order/complete?orderId=${orderId}&amount=${finalAmount}`);
-            return;
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            // Step 1: 재고 예약
+            const cartItemIds = checkoutItems.map((item) => item.id);
+            const reservation = await reserveMutation.mutateAsync(cartItemIds);
+            const orderId = reservation?.orderId;
+            orderIdRef.current = orderId;
+
+            // Step 2: 주문 확정 (배송정보 제출)
+            const result = await submitMutation.mutateAsync({
+                orderId,
+                shippingAddress: {
+                    receiver: selectedAddress.receiver,
+                    phone: selectedAddress.phone,
+                    zipCode: selectedAddress.zipCode,
+                    address1: selectedAddress.address1,
+                    address2: selectedAddress.address2,
+                },
+                deliveryMessage,
+            });
+
+            // TODO: Step 3 — 토스페이먼츠 결제 (Epic #28, Payment 서비스 완성 후)
+            // 현재는 submit 성공 = 주문 완료로 처리
+            navigate(
+                `/order/complete?orderId=${result?.orderId ?? orderId}&amount=${finalAmount}`,
+            );
+        } catch (error) {
+            setSubmitError(error);
+            setIsSubmitting(false);
+
+            // 예약까지 성공했으나 submit 실패 시 예약 취소
+            if (orderIdRef.current) {
+                cancelMutation.mutate(orderIdRef.current);
+                orderIdRef.current = null;
+            }
         }
-        navigate(`/order/fail?orderId=${orderId}&code=PAY_PROCESS_ERROR`);
     };
 
+    // 페이지 이탈 시 예약 취소 (예약 생성 후 결제 미완료 상태)
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (orderIdRef.current) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            // 언마운트 시 예약이 남아있으면 취소
+            if (orderIdRef.current) {
+                cancelMutation.mutate(orderIdRef.current);
+                orderIdRef.current = null;
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // --- 로딩 상태 ---
     if (!directMode && isCartLoading) {
         return <CheckoutPageSkeleton />;
     }
 
+    // --- 장바구니 에러 ---
     if (!directMode && isCartError) {
         return (
             <div className="grid min-h-[60vh] place-items-center">
@@ -197,11 +300,19 @@ function CheckoutPage() {
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>장바구니 조회 실패</AlertTitle>
-                            <AlertDescription>{cartError?.message ?? "잠시 후 다시 시도해 주세요."}</AlertDescription>
+                            <AlertDescription>
+                                {cartError?.message ?? "잠시 후 다시 시도해 주세요."}
+                            </AlertDescription>
                         </Alert>
                         <div className="flex flex-wrap gap-2">
-                            <Button type="button" onClick={() => refetchCart()} disabled={isCartFetching}>
-                                <RefreshCw className={`h-4 w-4 ${isCartFetching ? "animate-spin" : ""}`} />
+                            <Button
+                                type="button"
+                                onClick={() => refetchCart()}
+                                disabled={isCartFetching}
+                            >
+                                <RefreshCw
+                                    className={`h-4 w-4 ${isCartFetching ? "animate-spin" : ""}`}
+                                />
                                 다시 시도
                             </Button>
                             <Button asChild variant="outline">
@@ -214,28 +325,49 @@ function CheckoutPage() {
         );
     }
 
+    // --- 주문 제출 중 ---
+    if (isSubmitting) {
+        return (
+            <div className="grid min-h-[60vh] place-items-center">
+                <div className="space-y-3 text-center">
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">주문을 처리하고 있습니다...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-5">
                 <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Checkout</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        Checkout
+                    </p>
                     <h2 className="mt-2 text-3xl font-black tracking-tight text-foreground">
-                        {directItem ? "바로 구매 주문서" : "주문서 / 결제"}
+                        주문서 / 결제
                     </h2>
                     <p className="mt-2 text-sm text-muted-foreground">
-                        결제 모듈은 토스페이먼츠 기준으로 설계되어 있고, 현재는 결제 성공/실패 화면만 프론트 데모로 연결되어 있습니다.
+                        주문 상품과 배송 정보를 확인한 후 결제를 진행해 주세요.
                     </p>
                     {directItem ? (
                         <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
-                            선택 상품: <span className="font-semibold">{directItem.name}</span> {directItem.quantity}건을 결제합니다.
+                            선택 상품:{" "}
+                            <span className="font-semibold">{directItem.name}</span>{" "}
+                            {directItem.quantity}건을 결제합니다.
                         </p>
                     ) : (
                         <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
-                            장바구니에서 선택한 상품 <span className="font-semibold">{cart?.selectedItemCount ?? checkoutItems.length}건</span>을 결제합니다.
+                            장바구니에서 선택한 상품{" "}
+                            <span className="font-semibold">
+                                {cart?.selectedItemCount ?? checkoutItems.length}건
+                            </span>
+                            을 결제합니다.
                         </p>
                     )}
                 </section>
 
+                {/* 배송지 선택 (mock) */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -256,7 +388,10 @@ function CheckoutPage() {
                                 }`}
                             >
                                 <p className="text-sm font-semibold">
-                                    {address.label} {address.isDefault && <span className="ml-1 text-xs opacity-80">기본 배송지</span>}
+                                    {address.label}{" "}
+                                    {address.isDefault && (
+                                        <span className="ml-1 text-xs opacity-80">기본 배송지</span>
+                                    )}
                                 </p>
                                 <p className="mt-1 text-sm">
                                     {address.receiver} · {address.phone}
@@ -268,7 +403,9 @@ function CheckoutPage() {
                         ))}
 
                         <div className="space-y-2 pt-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">배송 요청사항</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                배송 요청사항
+                            </p>
                             <Input
                                 value={deliveryMessage}
                                 onChange={(event) => setDeliveryMessage(event.target.value)}
@@ -278,6 +415,7 @@ function CheckoutPage() {
                     </CardContent>
                 </Card>
 
+                {/* 결제 수단 (mock) */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -303,13 +441,15 @@ function CheckoutPage() {
                         ))}
 
                         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground">
-                            결제창 호출, 결제 승인/실패 콜백, 웹훅 검증은 실제 연동 시 토스페이먼츠 SDK로 연결합니다.
+                            결제창 호출, 결제 승인/실패 콜백, 웹훅 검증은 토스페이먼츠 SDK 연동 시
+                            활성화됩니다.
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
             <div className="space-y-5 md:sticky md:top-24 md:self-start">
+                {/* 주문 상품 */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base">주문 상품</CardTitle>
@@ -317,21 +457,36 @@ function CheckoutPage() {
                     <CardContent className="space-y-3">
                         {checkoutItems.length > 0 ? (
                             checkoutItems.map((item) => (
-                                <div key={item.id} className="flex gap-3 rounded-xl border border-border bg-muted p-3">
+                                <div
+                                    key={item.id}
+                                    className="flex gap-3 rounded-xl border border-border bg-muted p-3"
+                                >
                                     {item.thumbnail ? (
-                                        <img src={item.thumbnail} alt={item.name} className="h-16 w-16 rounded-lg object-cover" />
+                                        <img
+                                            src={item.thumbnail}
+                                            alt={item.name}
+                                            className="h-16 w-16 rounded-lg object-cover"
+                                        />
                                     ) : (
                                         <div className="grid h-16 w-16 place-items-center rounded-lg bg-card text-xs text-muted-foreground">
                                             이미지 없음
                                         </div>
                                     )}
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-xs text-muted-foreground">{item.storeName}</p>
-                                        <p className="line-clamp-1 text-sm font-semibold text-foreground">{item.name}</p>
-                                        <p className="line-clamp-1 text-xs text-muted-foreground">{item.option}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {item.storeName}
+                                        </p>
+                                        <p className="line-clamp-1 text-sm font-semibold text-foreground">
+                                            {item.name}
+                                        </p>
+                                        <p className="line-clamp-1 text-xs text-muted-foreground">
+                                            {item.option}
+                                        </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-xs text-muted-foreground">x {item.quantity}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            x {item.quantity}
+                                        </p>
                                         <p className="text-sm font-semibold text-foreground">
                                             {formatPrice(item.unitPrice * item.quantity)}
                                         </p>
@@ -348,6 +503,7 @@ function CheckoutPage() {
                     </CardContent>
                 </Card>
 
+                {/* 쿠폰 / 포인트 (mock) */}
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -357,7 +513,9 @@ function CheckoutPage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">쿠폰 선택</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                쿠폰 선택
+                            </p>
                             <div className="flex flex-wrap gap-2">
                                 <button
                                     type="button"
@@ -388,7 +546,9 @@ function CheckoutPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">포인트 사용</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                포인트 사용
+                            </p>
                             <Input
                                 type="number"
                                 min={0}
@@ -396,11 +556,14 @@ function CheckoutPage() {
                                 value={safeUsedPoint}
                                 onChange={(event) => setUsedPoint(event.target.value)}
                             />
-                            <p className="text-xs text-muted-foreground">최대 사용 가능 포인트: {maxUsablePoint.toLocaleString()}P</p>
+                            <p className="text-xs text-muted-foreground">
+                                최대 사용 가능 포인트: {maxUsablePoint.toLocaleString()}P
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
 
+                {/* 최종 결제 금액 */}
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-base">최종 결제 금액</CardTitle>
@@ -416,11 +579,15 @@ function CheckoutPage() {
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>쿠폰 할인</span>
-                            <span className="text-primary">- {formatPrice(couponDiscount)}</span>
+                            <span className="text-primary">
+                                - {formatPrice(couponDiscount)}
+                            </span>
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>포인트 사용</span>
-                            <span className="text-primary">- {formatPrice(safeUsedPoint)}</span>
+                            <span className="text-primary">
+                                - {formatPrice(safeUsedPoint)}
+                            </span>
                         </div>
                         <div className="my-2 h-px bg-border" />
                         <div className="flex items-center justify-between text-base font-bold text-foreground">
@@ -429,30 +596,44 @@ function CheckoutPage() {
                         </div>
 
                         <div className="rounded-2xl border border-border bg-muted p-3 text-xs text-muted-foreground">
-                            선택 결제수단: <span className="font-semibold text-foreground">{selectedPayment.name}</span>
+                            선택 결제수단:{" "}
+                            <span className="font-semibold text-foreground">
+                                {selectedPayment.name}
+                            </span>
                             <br />
-                            수령인: <span className="font-semibold text-foreground">{selectedAddress.receiver}</span>
+                            수령인:{" "}
+                            <span className="font-semibold text-foreground">
+                                {selectedAddress.receiver}
+                            </span>
                         </div>
+
+                        {/* 체크아웃 에러 표시 */}
+                        {submitError && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>
+                                    {isStockInsufficient(submitError)
+                                        ? "재고 부족"
+                                        : isReservationExpired(submitError)
+                                            ? "예약 만료"
+                                            : "주문 오류"}
+                                </AlertTitle>
+                                <AlertDescription>
+                                    {getCheckoutErrorMessage(submitError)}
+                                </AlertDescription>
+                            </Alert>
+                        )}
 
                         <Button
                             type="button"
-                            onClick={() => submitCheckout({ success: true })}
+                            onClick={handleSubmitCheckout}
                             disabled={!isCheckoutReady}
                             className="mt-2 h-10 w-full rounded-full text-sm font-semibold"
                         >
-                            토스페이먼츠 결제 요청
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => submitCheckout({ success: false })}
-                            disabled={!isCheckoutReady}
-                            className="h-10 w-full rounded-full text-sm font-semibold"
-                        >
-                            실패 화면 테스트
+                            {formatPrice(finalAmount)} 결제하기
                         </Button>
                         <Button asChild variant="ghost" className="h-9 w-full rounded-full">
-                            <Link to={directBackLink}>
+                            <Link to={directItem ? directBackLink : "/cart"}>
                                 {directItem ? "상품 상세로 돌아가기" : "장바구니로 돌아가기"}
                             </Link>
                         </Button>
@@ -466,24 +647,11 @@ function CheckoutPage() {
                             Checkout 연결 상태
                         </p>
                         <p className="mt-1">
-                            장바구니 선택 상품은 실제 API 데이터로 렌더링 중입니다. 결제 승인과 주문 submit은 아직 프론트 데모 플로우입니다.
+                            주문 submit API가 연결되었습니다. 배송지/쿠폰/결제수단은 백엔드 서비스
+                            구현 후 교체 예정입니다.
                         </p>
                     </CardContent>
                 </Card>
-
-                {!directMode ? (
-                    <Card className="border-emerald-200/60 bg-emerald-50/70 dark:border-emerald-300/20 dark:bg-emerald-400/10">
-                        <CardContent className="p-4 text-xs text-emerald-900 dark:text-emerald-100">
-                            <p className="inline-flex items-center gap-1 font-semibold">
-                                <BadgeCheck className="h-3.5 w-3.5" />
-                                Cart 연동 완료
-                            </p>
-                            <p className="mt-1">
-                                결제 대상은 장바구니에서 체크된 상품만 반영됩니다. 선택 상태나 수량을 바꾸려면 장바구니로 돌아가서 수정하세요.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : null}
             </div>
         </div>
     );
