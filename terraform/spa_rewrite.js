@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 function startsWithAnyPrefix(value, prefixes) {
     for (var i = 0; i < prefixes.length; i += 1) {
         if (value.indexOf(prefixes[i]) === 0) {
