@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +52,12 @@ function LoginPage() {
             const hasLoginError = finalUrl?.searchParams?.has("error") === true;
 
             if (!response.ok || isGatewayLoginPage || hasLoginError) {
-                setSubmitError("로그인에 실패했습니다. 아이디와 비밀번호를 다시 확인해 주세요.");
+                const errorParam = finalUrl?.searchParams?.get("error") ?? "";
+                if (errorParam === "email_not_verified") {
+                    setSubmitError("EMAIL_NOT_VERIFIED");
+                } else {
+                    setSubmitError("로그인에 실패했습니다. 아이디와 비밀번호를 다시 확인해 주세요.");
+                }
                 return;
             }
 
@@ -90,7 +95,17 @@ function LoginPage() {
                             프록시된 `/api`, `/bff` 요청에 사용자 컨텍스트가 자동으로 붙습니다.
                         </p>
                     </div>
-                    {submitError ? (
+                    {submitError === "EMAIL_NOT_VERIFIED" ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>이메일 인증 필요</AlertTitle>
+                            <AlertDescription>
+                                이메일 인증이 필요합니다.{" "}
+                                <Link to="/auth/join" className="font-semibold underline underline-offset-2">
+                                    이메일 인증하기
+                                </Link>
+                            </AlertDescription>
+                        </Alert>
+                    ) : submitError ? (
                         <Alert variant="destructive">
                             <AlertTitle>로그인 실패</AlertTitle>
                             <AlertDescription>{submitError}</AlertDescription>
