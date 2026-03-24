@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
+import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { coupons, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
@@ -31,7 +32,6 @@ import {
 } from "@/domains/client/checkout/lib/checkoutErrors";
 
 const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
-const TOSS_CUSTOMER_KEY = `don-moa-${Date.now()}`;
 
 function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     if (!selectedCoupon) return 0;
@@ -129,6 +129,12 @@ function CheckoutPage() {
     const directProductId = searchParams.get("productId") ?? "";
     const directTicketGrade = searchParams.get("ticketGrade") ?? "";
     const directTicketQuantity = searchParams.get("ticketQuantity") ?? "1";
+
+    const user = useAuthStore((s) => s.user);
+    const tossCustomerKey = useMemo(
+        () => (user?.id ? `don-moa-${user.id}` : `don-moa-guest-${Date.now()}`),
+        [user?.id],
+    );
 
     const {
         data: cart,
@@ -248,7 +254,7 @@ function CheckoutPage() {
 
             // Step 3: 토스페이먼츠 결제창 호출
             const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
-            const payment = tossPayments.payment({ customerKey: TOSS_CUSTOMER_KEY });
+            const payment = tossPayments.payment({ customerKey: tossCustomerKey });
 
             const orderName =
                 checkoutItems.length === 1
