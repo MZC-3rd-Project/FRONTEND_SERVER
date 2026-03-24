@@ -1,7 +1,13 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
 import { shouldRetryRequest } from "@/common/api/queryRetry";
-import { fetchHotDealDetail, fetchHotDeals } from "@/domains/client/deals/api/dealsApi";
+import {
+    enterHotDealQueue,
+    fetchHotDealDetail,
+    fetchHotDealQueueStatus,
+    fetchHotDeals,
+    purchaseHotDeal,
+} from "@/domains/client/deals/api/dealsApi";
 import { mapHotDealDetailPayload, mapHotDealListPayload } from "@/domains/client/deals/lib/dealsMappers";
 
 export const dealsKeys = {
@@ -10,6 +16,8 @@ export const dealsKeys = {
     list: (params) => [...dealsKeys.lists(), params],
     details: () => [...dealsKeys.all, "detail"],
     detail: ({ hotDealId, itemId, itemType }) => [...dealsKeys.details(), hotDealId, itemId, itemType],
+    queue: () => [...dealsKeys.all, "queue"],
+    queueStatus: (hotDealId) => [...dealsKeys.queue(), hotDealId, "status"],
 };
 
 export function useHotDealsQuery(params = {}) {
@@ -55,5 +63,40 @@ export function useHotDealDetailQuery({ hotDealId, itemId, itemType = "PRODUCT" 
         enabled: Boolean(hotDealId),
         retry: shouldRetryRequest,
         staleTime: 30_000,
+    });
+}
+
+export function useHotDealQueueStatusQuery(hotDealId, options = {}) {
+    const {
+        enabled = true,
+        refetchInterval = false,
+    } = options;
+
+    return useQuery({
+        queryKey: dealsKeys.queueStatus(hotDealId),
+        queryFn: async () => {
+            const payload = await fetchHotDealQueueStatus(hotDealId);
+
+            return {
+                position: typeof payload?.position === "number" ? payload.position : null,
+                canPurchase: Boolean(payload?.canPurchase),
+            };
+        },
+        enabled: enabled && Boolean(hotDealId),
+        retry: shouldRetryRequest,
+        staleTime: 0,
+        refetchInterval,
+    });
+}
+
+export function useEnterHotDealQueueMutation() {
+    return useMutation({
+        mutationFn: (hotDealId) => enterHotDealQueue(hotDealId),
+    });
+}
+
+export function usePurchaseHotDealMutation() {
+    return useMutation({
+        mutationFn: ({ hotDealId, payload }) => purchaseHotDeal(hotDealId, payload),
     });
 }

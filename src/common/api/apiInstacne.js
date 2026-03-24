@@ -6,9 +6,10 @@ import { redirectToAuthLogin } from "./authNavigation.js";
 const isDev = import.meta.env.DEV;
 const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET;
 const useDevProxy = isDev && Boolean(proxyTarget);
+const defaultApiBaseURL = isDev ? "http://localhost:8071/api" : "/api";
 const apiBaseURL = useDevProxy
     ? "/api"
-    : (import.meta.env.VITE_API_URL || "http://localhost:8071/api");
+    : (import.meta.env.VITE_API_URL || defaultApiBaseURL);
 let authRedirectInProgress = false;
 
 function quoteLargeIntegerLiterals(raw) {

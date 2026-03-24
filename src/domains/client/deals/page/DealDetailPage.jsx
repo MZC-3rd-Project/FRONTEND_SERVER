@@ -1,19 +1,139 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { AlertCircle, Flame, PackageCheck, RefreshCw, ShoppingCart, Store, Timer } from "lucide-react";
+import {
+    AlertCircle,
+    CheckCircle2,
+    Flame,
+    LoaderCircle,
+    LogIn,
+    PackageCheck,
+    RefreshCw,
+    Store,
+    Timer,
+} from "lucide-react";
 
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
-import { buildDealCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
-import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
+import { Modal } from "@/components/ui/modal.jsx";
+import { useAuthStore } from "@/common/store/useAuthStore.js";
+import { encodeIdPathSegment } from "@/common/utils/id";
 import { DEAL_IMAGE_PLACEHOLDER } from "@/domains/client/deals/lib/dealsMappers";
-import { useHotDealDetailQuery } from "@/domains/client/deals/query/useDealsQueries";
+import { useHotDealQueueSse } from "@/domains/client/deals/hooks/useHotDealQueueSse.js";
+import {
+    useEnterHotDealQueueMutation,
+    useHotDealDetailQuery,
+    useHotDealQueueStatusQuery,
+    usePurchaseHotDealMutation,
+} from "@/domains/client/deals/query/useDealsQueries";
+
+const HOT_DEAL_QUEUE_TOKEN_STORAGE_KEY_PREFIX = "hotdeal:queue-token:";
+const ESTIMATED_QUEUE_SECONDS_PER_USER = 2;
 
 function ratingText(rating) {
     return "★".repeat(rating) + "☆".repeat(5 - rating);
+}
+
+function getQueueStorage() {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    try {
+        return window.sessionStorage;
+    } catch {
+        return null;
+    }
+}
+
+function queueTokenStorageKey(hotDealId) {
+    return `${HOT_DEAL_QUEUE_TOKEN_STORAGE_KEY_PREFIX}${hotDealId}`;
+}
+
+function readStoredQueueToken(hotDealId) {
+    if (!hotDealId) {
+        return "";
+    }
+
+    const storage = getQueueStorage();
+    if (!storage) {
+        return "";
+    }
+
+    try {
+        return storage.getItem(queueTokenStorageKey(hotDealId)) ?? "";
+    } catch {
+        return "";
+    }
+}
+
+function persistQueueToken(hotDealId, token) {
+    if (!hotDealId) {
+        return;
+    }
+
+    const storage = getQueueStorage();
+    if (!storage) {
+        return;
+    }
+
+    try {
+        if (token) {
+            storage.setItem(queueTokenStorageKey(hotDealId), token);
+            return;
+        }
+
+        storage.removeItem(queueTokenStorageKey(hotDealId));
+    } catch {
+        // Ignore storage failures and keep the queue flow in-memory.
+    }
+}
+
+function estimateWaitSeconds(position) {
+    const normalizedPosition = Number(position);
+
+    if (!Number.isFinite(normalizedPosition) || normalizedPosition <= 0) {
+        return 0;
+    }
+
+    return normalizedPosition * ESTIMATED_QUEUE_SECONDS_PER_USER;
+}
+
+function formatWaitLabel(totalSeconds) {
+    const normalizedSeconds = Number(totalSeconds);
+
+    if (!Number.isFinite(normalizedSeconds) || normalizedSeconds <= 0) {
+        return "곧 구매 가능합니다.";
+    }
+
+    if (normalizedSeconds < 60) {
+        return `약 ${normalizedSeconds}초 남음`;
+    }
+
+    const minutes = Math.floor(normalizedSeconds / 60);
+    const seconds = normalizedSeconds % 60;
+    return `약 ${minutes}분 ${seconds}초 남음`;
+}
+
+function formatDateTimeText(value) {
+    if (!value) {
+        return "시간 정보 없음";
+    }
+
+    const date = new Date(String(value).replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 }
 
 function DealDetailSkeleton() {
@@ -53,17 +173,93 @@ function renderProductImage(imageUrl, title, className) {
     return <img src={imageUrl} alt={title} className={className} />;
 }
 
-function DealDetailPage() {
-    const { dealId } = useParams();
-    const [searchParams] = useSearchParams();
+function DealDetailContent({ dealId, searchParams }) {
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const itemId = searchParams.get("itemId") ?? "";
     const itemType = searchParams.get("itemType") ?? "PRODUCT";
-    const addCartItemMutation = useAddCartItemMutation();
-    const [cartFeedback, setCartFeedback] = useState(null);
     const { data: deal, isLoading, isError, error, refetch, isFetching } = useHotDealDetailQuery({
         hotDealId: dealId,
         itemId,
         itemType,
+    });
+    const enterQueueMutation = useEnterHotDealQueueMutation();
+    const purchaseMutation = usePurchaseHotDealMutation();
+
+    const [queueToken, setQueueToken] = useState(() => readStoredQueueToken(dealId));
+    const [queueSnapshot, setQueueSnapshot] = useState({
+        position: null,
+        canPurchase: false,
+        estimatedWaitSeconds: null,
+    });
+    const [isQueueModalOpen, setQueueModalOpen] = useState(false);
+    const [queueFeedback, setQueueFeedback] = useState(null);
+    const [purchaseResult, setPurchaseResult] = useState(null);
+
+    const queueStatusQuery = useHotDealQueueStatusQuery(deal?.hotDealId, {
+        enabled: isAuthenticated && Boolean(queueToken) && Boolean(deal?.hotDealId) && !purchaseResult,
+        refetchInterval: (query) => {
+            if (!isAuthenticated || !queueToken || purchaseResult) {
+                return false;
+            }
+
+            if (query.state.error?.status === 401) {
+                return false;
+            }
+
+            return query.state.data?.canPurchase ? false : 5_000;
+        },
+    });
+    const queueSessionExpired = queueStatusQuery.error?.status === 401;
+    const activeQueueToken = queueSessionExpired ? "" : queueToken;
+    const effectiveQueueState = useMemo(() => {
+        if (queueSessionExpired) {
+            return {
+                position: null,
+                canPurchase: false,
+                estimatedWaitSeconds: null,
+            };
+        }
+
+        if (queueStatusQuery.data) {
+            return {
+                position: queueStatusQuery.data.position,
+                canPurchase: queueStatusQuery.data.canPurchase,
+                estimatedWaitSeconds: queueStatusQuery.data.canPurchase
+                    ? 0
+                    : estimateWaitSeconds(queueStatusQuery.data.position),
+            };
+        }
+
+        return queueSnapshot;
+    }, [queueSessionExpired, queueSnapshot, queueStatusQuery.data]);
+
+    const handleQueueStatusEvent = useCallback((payload, eventName) => {
+        if (eventName === "queue-connected") {
+            return;
+        }
+
+        const nextPosition = typeof payload?.position === "number" ? payload.position : null;
+        const nextCanPurchase = Boolean(payload?.canPurchase);
+
+        setQueueSnapshot({
+            position: nextPosition,
+            canPurchase: nextCanPurchase,
+            estimatedWaitSeconds: nextCanPurchase ? 0 : estimateWaitSeconds(nextPosition),
+        });
+
+        if (eventName === "queue-admitted" || nextCanPurchase) {
+            setQueueModalOpen(true);
+            setQueueFeedback({
+                type: "success",
+                message: "구매 차례가 되었습니다. 지금 바로 구매하세요.",
+            });
+        }
+    }, []);
+
+    useHotDealQueueSse({
+        hotDealId: deal?.hotDealId,
+        enabled: isAuthenticated && Boolean(activeQueueToken) && Boolean(deal?.hotDealId) && !purchaseResult,
+        onStatus: handleQueueStatusEvent,
     });
 
     if (isLoading) {
@@ -118,26 +314,207 @@ function DealDetailPage() {
     const product = deal.item;
     const store = deal.store;
     const reviews = deal.reviews;
+    const loginRedirectPath = `/deals/${encodeIdPathSegment(deal.hotDealId)}${itemId ? `?itemId=${encodeURIComponent(itemId)}&itemType=${encodeURIComponent(itemType)}` : ""}`;
+    const dealOpenForQueue = deal.canPurchase;
+    const isWaitingInQueue = Boolean(activeQueueToken) && !effectiveQueueState.canPurchase && !purchaseResult;
+    const canRequestPurchase = Boolean(activeQueueToken) && effectiveQueueState.canPurchase && !purchaseResult;
+    const actionBusy = enterQueueMutation.isPending || purchaseMutation.isPending;
+    const queueStatusMessage = queueSessionExpired
+        ? "대기열 세션이 만료되었습니다. 다시 입장해 주세요."
+        : queueStatusQuery.error?.status && queueStatusQuery.error?.status !== 401
+            ? (queueStatusQuery.error?.message ?? "대기열 상태를 확인하지 못했습니다.")
+            : "";
+    const shouldShowQueueModal = (Boolean(activeQueueToken) || Boolean(purchaseResult)) && isQueueModalOpen;
+    const queueModalTitle = purchaseResult
+        ? "핫딜 주문 접수 완료"
+        : canRequestPurchase
+            ? "구매 차례입니다"
+            : "핫딜 대기열";
+    const queueModalDescription = purchaseResult
+        ? "주문 번호와 유효 시간을 확인한 뒤 주문 상세로 이동하세요."
+        : canRequestPurchase
+            ? "지금 구매 버튼이 열려 있습니다. 기회를 놓치지 말고 바로 진행하세요."
+            : "순번과 예상 대기 시간을 크게 보여드립니다.";
 
-    const handleAddToCart = async () => {
-        setCartFeedback(null);
+    const handleEnterQueue = async () => {
+        if (!deal?.hotDealId) {
+            return;
+        }
+
+        setQueueFeedback(null);
+        setPurchaseResult(null);
 
         try {
-            await addCartItemMutation.mutateAsync(buildDealCartItemInput(deal));
-            setCartFeedback({
-                type: "success",
-                message: "장바구니에 핫딜 상품을 담았습니다.",
+            const response = await enterQueueMutation.mutateAsync(deal.hotDealId);
+            const nextToken = response?.token ?? "";
+
+            setQueueToken(nextToken);
+            persistQueueToken(deal.hotDealId, nextToken);
+            setQueueSnapshot({
+                position: response?.position ?? null,
+                canPurchase: (response?.position ?? null) === 0,
+                estimatedWaitSeconds:
+                    typeof response?.estimatedWaitSeconds === "number"
+                        ? response.estimatedWaitSeconds
+                        : estimateWaitSeconds(response?.position),
             });
-        } catch (mutationError) {
-            setCartFeedback({
+            setQueueFeedback({
+                type: (response?.position ?? null) === 0 ? "success" : "default",
+                message:
+                    (response?.position ?? null) === 0
+                        ? "바로 구매 가능한 상태입니다."
+                        : "핫딜 대기열에 진입했습니다.",
+            });
+            setQueueModalOpen(true);
+        } catch (queueError) {
+            setQueueFeedback({
                 type: "error",
-                message: mutationError?.message ?? "장바구니 담기에 실패했습니다.",
+                message: queueError?.message ?? "핫딜 대기열 입장에 실패했습니다.",
             });
+        }
+    };
+
+    const handlePurchase = async () => {
+        if (!deal?.hotDealId) {
+            return;
+        }
+
+        setQueueFeedback(null);
+
+        try {
+            const result = await purchaseMutation.mutateAsync({
+                hotDealId: deal.hotDealId,
+                payload: {
+                    quantity: 1,
+                    token: queueToken || undefined,
+                },
+            });
+
+            persistQueueToken(deal.hotDealId, "");
+            setQueueToken("");
+            setQueueSnapshot({
+                position: null,
+                canPurchase: false,
+                estimatedWaitSeconds: null,
+            });
+            setPurchaseResult(result);
+            setQueueModalOpen(true);
+            setQueueFeedback({
+                type: "success",
+                message: "핫딜 주문이 접수되었습니다.",
+            });
+            void refetch();
+        } catch (purchaseError) {
+            setQueueFeedback({
+                type: "error",
+                message: purchaseError?.message ?? "핫딜 구매 요청에 실패했습니다.",
+            });
+
+            if (purchaseError?.status === 401 || purchaseError?.status === 403) {
+                void queueStatusQuery.refetch();
+            }
         }
     };
 
     return (
         <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+            <Modal
+                open={shouldShowQueueModal}
+                onClose={() => setQueueModalOpen(false)}
+                title={queueModalTitle}
+                description={queueModalDescription}
+                className="max-w-2xl"
+            >
+                <div className="space-y-5">
+                    {purchaseResult ? (
+                        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900">
+                            <p className="text-sm font-semibold uppercase tracking-[0.18em]">Hot Deal Success</p>
+                            <p className="mt-3 text-3xl font-black">{purchaseResult.orderId}</p>
+                            <p className="mt-2 text-sm">주문 유효시간 {formatDateTimeText(purchaseResult.expiresAt)}</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-3xl border border-border bg-card p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">현재 순번</p>
+                                <p className="mt-3 text-4xl font-black text-foreground">
+                                    {effectiveQueueState.position ?? 0}
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    {canRequestPurchase ? "지금 바로 구매 가능합니다." : "0이면 구매 허용 상태입니다."}
+                                </p>
+                            </div>
+                            <div className="rounded-3xl border border-border bg-card p-5">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">예상 대기</p>
+                                <p className="mt-3 text-2xl font-black text-foreground">
+                                    {formatWaitLabel(effectiveQueueState.estimatedWaitSeconds)}
+                                </p>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    SSE와 상태 조회가 동시에 갱신됩니다.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {queueStatusMessage ? (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>대기열 상태 확인 실패</AlertTitle>
+                            <AlertDescription>{queueStatusMessage}</AlertDescription>
+                        </Alert>
+                    ) : null}
+
+                    {queueFeedback ? (
+                        <Alert variant={queueFeedback.type === "error" ? "destructive" : "default"}>
+                            {queueFeedback.type === "error" ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                            <AlertTitle>{queueFeedback.type === "error" ? "대기열 처리 실패" : "대기열 상태"}</AlertTitle>
+                            <AlertDescription>{queueFeedback.message}</AlertDescription>
+                        </Alert>
+                    ) : null}
+
+                    <div className="flex flex-wrap gap-2">
+                        {canRequestPurchase ? (
+                            <Button
+                                type="button"
+                                onClick={handlePurchase}
+                                disabled={actionBusy}
+                                className="rounded-full px-5"
+                            >
+                                {purchaseMutation.isPending ? (
+                                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                )}
+                                {purchaseMutation.isPending ? "구매 요청 중..." : "핫딜 1개 구매하기"}
+                            </Button>
+                        ) : null}
+
+                        {purchaseResult?.orderId ? (
+                            <Button asChild variant="outline" className="rounded-full px-5">
+                                <Link to={`/my/orders/${encodeIdPathSegment(purchaseResult.orderId)}`}>
+                                    주문 상세 보기
+                                </Link>
+                            </Button>
+                        ) : null}
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-full px-5"
+                            onClick={() => {
+                                if (activeQueueToken) {
+                                    void queueStatusQuery.refetch();
+                                }
+                                setQueueModalOpen(false);
+                            }}
+                            disabled={queueStatusQuery.isFetching}
+                        >
+                            <RefreshCw className={`h-4 w-4 ${queueStatusQuery.isFetching ? "animate-spin" : ""}`} />
+                            상태 다시 확인
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
             <div className="order-2 space-y-6 lg:order-1">
                 <section className="rounded-3xl border border-border bg-card p-6 sm:p-8">
                     <div className="grid gap-5 md:grid-cols-[1.1fr_0.9fr]">
@@ -178,40 +555,93 @@ function DealDetailPage() {
                                 ) : null}
                             </div>
 
+                            {queueFeedback ? (
+                                <Alert variant={queueFeedback.type === "error" ? "destructive" : "default"}>
+                                    {queueFeedback.type === "error" ? (
+                                        <AlertCircle className="h-4 w-4" />
+                                    ) : (
+                                        <CheckCircle2 className="h-4 w-4" />
+                                    )}
+                                    <AlertTitle>{queueFeedback.type === "error" ? "대기열 처리 실패" : "대기열 상태"}</AlertTitle>
+                                    <AlertDescription>{queueFeedback.message}</AlertDescription>
+                                </Alert>
+                            ) : null}
+
                             <div className="flex flex-wrap gap-2 pt-1">
-                                {deal.canPurchase ? (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            onClick={handleAddToCart}
-                                            disabled={addCartItemMutation.isPending}
-                                            className="rounded-full px-5"
-                                        >
-                                            <ShoppingCart className="h-4 w-4" />
-                                            {addCartItemMutation.isPending ? "담는 중..." : "장바구니 담기"}
-                                        </Button>
-                                        <Button asChild variant="outline" className="rounded-full px-5">
-                                            <Link to="/cart">장바구니 보기</Link>
-                                        </Button>
-                                    </>
-                                ) : (
+                                {!isAuthenticated ? (
+                                    <Button asChild className="rounded-full px-5">
+                                        <Link to={`/auth/login?redirect=${encodeURIComponent(loginRedirectPath)}`}>
+                                            <LogIn className="h-4 w-4" />
+                                            로그인하고 대기열 입장
+                                        </Link>
+                                    </Button>
+                                ) : null}
+
+                                {isAuthenticated && dealOpenForQueue && !activeQueueToken && !purchaseResult ? (
+                                    <Button
+                                        type="button"
+                                        onClick={handleEnterQueue}
+                                        disabled={actionBusy}
+                                        className="rounded-full px-5"
+                                    >
+                                        {enterQueueMutation.isPending ? (
+                                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Flame className="h-4 w-4" />
+                                        )}
+                                        {enterQueueMutation.isPending ? "입장 중..." : "대기열 입장"}
+                                    </Button>
+                                ) : null}
+
+                                {isAuthenticated && canRequestPurchase ? (
+                                    <Button
+                                        type="button"
+                                        onClick={() => setQueueModalOpen(true)}
+                                        disabled={actionBusy}
+                                        className="rounded-full px-5"
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        구매 차례 확인
+                                    </Button>
+                                ) : null}
+
+                                {isAuthenticated && isWaitingInQueue ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="rounded-full px-5"
+                                        onClick={() => setQueueModalOpen(true)}
+                                    >
+                                        <Timer className="h-4 w-4" />
+                                        대기열 상태 보기
+                                    </Button>
+                                ) : null}
+
+                                {isAuthenticated && !dealOpenForQueue ? (
                                     <Button disabled className="rounded-full px-5">구매 불가</Button>
-                                )}
+                                ) : null}
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-full px-5"
+                                    onClick={() => {
+                                        void refetch();
+                                        if (activeQueueToken) {
+                                            void queueStatusQuery.refetch();
+                                        }
+                                    }}
+                                    disabled={isFetching || queueStatusQuery.isFetching}
+                                >
+                                    <RefreshCw
+                                        className={`h-4 w-4 ${(isFetching || queueStatusQuery.isFetching) ? "animate-spin" : ""}`}
+                                    />
+                                    상태 새로고침
+                                </Button>
                                 <Button asChild variant="ghost" className="rounded-full px-5">
                                     <Link to="/deals">목록으로</Link>
                                 </Button>
                             </div>
-                            {cartFeedback ? (
-                                <Alert variant={cartFeedback.type === "error" ? "destructive" : "default"}>
-                                    {cartFeedback.type === "error" ? (
-                                        <AlertCircle className="h-4 w-4" />
-                                    ) : (
-                                        <ShoppingCart className="h-4 w-4" />
-                                    )}
-                                    <AlertTitle>{cartFeedback.type === "error" ? "장바구니 담기 실패" : "장바구니 담기 완료"}</AlertTitle>
-                                    <AlertDescription>{cartFeedback.message}</AlertDescription>
-                                </Alert>
-                            ) : null}
                         </div>
                     </div>
                 </section>
@@ -303,9 +733,9 @@ function DealDetailPage() {
                     <CardContent className="space-y-2 text-xs text-muted-foreground">
                         {store.name ? <p>{store.name}</p> : null}
                         {store.tagline ? <p>{store.tagline}</p> : null}
-                        <p>핫딜은 남은 시간/수량 기준으로 종료될 수 있습니다.</p>
-                        <p>현재 재고 {deal.stock.availableQuantity.toLocaleString()}개 기준으로 바로 구매가 가능합니다.</p>
-                        <p>종료 후 동일 상품은 일반 판매 가격이 적용됩니다.</p>
+                        <p>핫딜은 대기열 순서에 따라 구매 차례가 열립니다.</p>
+                        <p>현재 재고 {deal.stock.availableQuantity.toLocaleString()}개 기준으로 입장 인원이 조절됩니다.</p>
+                        <p>구매 허용 후 일정 시간 안에 주문을 완료해야 기회를 유지할 수 있습니다.</p>
                     </CardContent>
                 </Card>
                 <div className="mt-4">
@@ -319,4 +749,15 @@ function DealDetailPage() {
     );
 }
 
-export default DealDetailPage;
+export default function DealDetailPage() {
+    const { dealId } = useParams();
+    const [searchParams] = useSearchParams();
+
+    return (
+        <DealDetailContent
+            key={dealId ?? "deal"}
+            dealId={dealId}
+            searchParams={searchParams}
+        />
+    );
+}

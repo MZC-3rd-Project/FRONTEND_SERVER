@@ -20,3 +20,15 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "gateway_origin_domain_name" {
+  description = "Public gateway ALB domain used as the CloudFront API/BFF origin"
+  type        = string
+  default     = "k8s-donmoadevgateway-3983261778-1519590243.ap-northeast-2.elb.amazonaws.com"
+}
+
+variable "keycloak_origin_domain_name" {
+  description = "Public Keycloak ALB domain used as the CloudFront OAuth origin"
+  type        = string
+  default     = "k8s-donmoadevpublic-0339585d5d-2072655666.ap-northeast-2.elb.amazonaws.com"
+}

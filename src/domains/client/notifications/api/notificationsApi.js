@@ -9,9 +9,10 @@ const NOTIFICATION_REQUEST_CONFIG = {
 const isDev = import.meta.env.DEV;
 const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET;
 const useDevProxy = isDev && Boolean(proxyTarget);
+const defaultNotificationBaseURL = isDev ? "http://localhost:8071/api" : "/api";
 const notificationBaseURL = useDevProxy
     ? "/api"
-    : (import.meta.env.VITE_API_URL || "http://localhost:8071/api");
+    : (import.meta.env.VITE_API_URL || defaultNotificationBaseURL);
 
 export async function fetchNotifications({ cursor, size = 20 } = {}) {
     try {
