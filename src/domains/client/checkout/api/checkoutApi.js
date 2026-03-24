@@ -23,12 +23,14 @@ export async function fetchCheckoutQuote(orderId) {
     }
 }
 
-export async function submitCheckout({ orderId, shippingAddress, deliveryMessage }) {
+export async function submitCheckout({ orderId, recipientName, recipientPhone, deliveryAddressId, deliveryMemo }) {
     try {
         const response = await axiosInstance.post("/v1/sales/checkout/submit", {
             orderId,
-            shippingAddress,
-            deliveryMessage,
+            recipientName,
+            recipientPhone,
+            deliveryAddressId,
+            deliveryMemo,
         });
         return unwrapApiResponseBody(response, "주문 확정에 실패했습니다.");
     } catch (error) {
