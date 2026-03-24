@@ -1,14 +1,22 @@
 import { Link, useSearchParams } from "react-router";
-import { CheckCircle2, ReceiptText, Truck } from "lucide-react";
+import { CheckCircle2, Loader2, ReceiptText, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/domains/client/common/utils/format.js";
+import { useOrderDetailQuery } from "@/domains/client/order/query/useOrderQueries";
 
 function OrderCompletePage() {
     const [params] = useSearchParams();
-    const orderId = params.get("orderId") ?? "DM-DEMO-0001";
-    const amount = Number(params.get("amount") ?? 0);
+    const orderId = params.get("orderId") ?? "";
+    const fallbackAmount = Number(params.get("amount") ?? 0);
+
+    const { data: order, isLoading } = useOrderDetailQuery(orderId);
+
+    const displayAmount = order?.totalAmount ?? fallbackAmount;
+    const displayPayment = order?.paymentMethod ?? "토스페이먼츠";
+    const displayStatus = order?.statusLabel ?? "결제완료";
+    const orderItems = order?.items ?? [];
 
     return (
         <div className="mx-auto max-w-3xl space-y-6">
@@ -18,61 +26,147 @@ function OrderCompletePage() {
                 <p className="mt-2 text-sm">주문이 정상 접수되었고, 배송/티켓 발급 상태는 주문내역에서 확인할 수 있습니다.</p>
             </section>
 
-            <Card className="border-zinc-200/80 bg-white/95">
-                <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base text-zinc-900">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        주문 정보
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between text-zinc-600">
-                        <span>주문번호</span>
-                        <span className="font-semibold text-zinc-900">{orderId}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-zinc-600">
-                        <span>결제금액</span>
-                        <span className="font-semibold text-zinc-900">{formatPrice(amount)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-zinc-600">
-                        <span>결제수단</span>
-                        <span className="font-semibold text-zinc-900">토스페이먼츠</span>
-                    </div>
-                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
-                        티켓형 상품은 결제 즉시 마이페이지에서 확인 가능하며, 재고형 상품은 발송 후 송장 정보가 업데이트됩니다.
-                    </div>
-                </CardContent>
-            </Card>
+            {isLoading ? (
+                <div className="grid place-items-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+            ) : (
+                <>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                주문 정보
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>주문번호</span>
+                                <span className="font-semibold text-foreground">{orderId}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>결제금액</span>
+                                <span className="font-semibold text-foreground">{formatPrice(displayAmount)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>결제수단</span>
+                                <span className="font-semibold text-foreground">{displayPayment}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>주문상태</span>
+                                <span className="font-semibold text-foreground">{displayStatus}</span>
+                            </div>
+
+                            {orderItems.length > 0 && (
+                                <div className="space-y-2 pt-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        주문 상품
+                                    </p>
+                                    {orderItems.slice(0, 3).map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className="flex items-center gap-3 rounded-xl border border-border bg-muted p-3"
+                                        >
+                                            {item.thumbnail && (
+                                                <img
+                                                    src={item.thumbnail}
+                                                    alt={item.name}
+                                                    className="h-12 w-12 rounded-lg object-cover"
+                                                />
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                <p className="line-clamp-1 text-sm font-semibold text-foreground">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {item.option} · x{item.quantity}
+                                                </p>
+                                            </div>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {formatPrice(item.unitPrice * item.quantity)}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    {orderItems.length > 3 && (
+                                        <p className="text-xs text-muted-foreground">
+                                            외 {orderItems.length - 3}건
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="rounded-xl border border-border bg-muted p-3 text-xs text-muted-foreground">
+                                티켓형 상품은 결제 즉시 마이페이지에서 확인 가능하며, 재고형 상품은 발송 후 송장 정보가 업데이트됩니다.
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {order && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">결제 상세</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                    <span>상품 금액</span>
+                                    <span>{order.subtotalText}</span>
+                                </div>
+                                {order.discountAmount > 0 && (
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                        <span>할인</span>
+                                        <span className="text-primary">- {order.discountAmountText}</span>
+                                    </div>
+                                )}
+                                {order.usedPoint > 0 && (
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                        <span>포인트</span>
+                                        <span className="text-primary">- {order.usedPointText}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                    <span>배송비</span>
+                                    <span>{order.shippingFeeText}</span>
+                                </div>
+                                <div className="my-1 h-px bg-border" />
+                                <div className="flex items-center justify-between text-base font-bold text-foreground">
+                                    <span>총 결제금액</span>
+                                    <span>{order.totalAmountText}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </>
+            )}
 
             <section className="grid gap-3 sm:grid-cols-2">
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardContent className="p-4 text-sm">
-                        <p className="inline-flex items-center gap-1 font-semibold text-zinc-900">
-                            <ReceiptText className="h-4 w-4 text-cyan-700" />
+                        <p className="inline-flex items-center gap-1 font-semibold text-foreground">
+                            <ReceiptText className="h-4 w-4 text-primary" />
                             주문내역 확인
                         </p>
-                        <p className="mt-1 text-zinc-600">주문 상태, 결제 정보, 취소/교환 신청을 한 곳에서 확인하세요.</p>
+                        <p className="mt-1 text-muted-foreground">주문 상태, 결제 정보, 취소/교환 신청을 한 곳에서 확인하세요.</p>
                     </CardContent>
                 </Card>
-                <Card className="border-zinc-200/80 bg-white/95">
+                <Card>
                     <CardContent className="p-4 text-sm">
-                        <p className="inline-flex items-center gap-1 font-semibold text-zinc-900">
-                            <Truck className="h-4 w-4 text-cyan-700" />
+                        <p className="inline-flex items-center gap-1 font-semibold text-foreground">
+                            <Truck className="h-4 w-4 text-primary" />
                             배송 상태 추적
                         </p>
-                        <p className="mt-1 text-zinc-600">송장 번호 연동 시 실시간 배송 위치와 도착 예정일을 제공합니다.</p>
+                        <p className="mt-1 text-muted-foreground">송장 번호 연동 시 실시간 배송 위치와 도착 예정일을 제공합니다.</p>
                     </CardContent>
                 </Card>
             </section>
 
             <div className="flex flex-wrap gap-2">
-                <Button asChild className="rounded-full bg-zinc-900 px-5 text-white hover:bg-zinc-700">
+                <Button asChild className="rounded-full px-5">
                     <Link to={`/my/orders/${orderId}`}>주문 상세 보기</Link>
                 </Button>
-                <Button asChild variant="outline" className="rounded-full border-zinc-300 bg-white px-5 text-zinc-700 hover:bg-zinc-100">
+                <Button asChild variant="outline" className="rounded-full px-5">
                     <Link to="/my/orders">주문내역 이동</Link>
                 </Button>
-                <Button asChild variant="ghost" className="rounded-full px-5 text-zinc-700 hover:bg-zinc-100">
+                <Button asChild variant="ghost" className="rounded-full px-5">
                     <Link to="/">홈으로 이동</Link>
                 </Button>
             </div>
