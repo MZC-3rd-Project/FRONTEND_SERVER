@@ -10,8 +10,7 @@ import { signup, verifyEmail, resendVerificationEmail } from "@/domains/client/a
 
 const signupSchema = z
     .object({
-        firstName: z.string().min(1, "이름을 입력해주세요."),
-        lastName: z.string().min(1, "성을 입력해주세요."),
+        name: z.string().min(1, "이름을 입력해주세요."),
         username: z.string().min(1, "아이디를 입력해주세요."),
         email: z.string().min(1, "이메일을 입력해주세요.").email("유효한 이메일 형식이 아닙니다."),
         password: z.string().min(8, "비밀번호는 최소 8자 이상이어야 합니다."),
@@ -45,8 +44,7 @@ function SignupForm({ onSuccess }) {
 
         const formData = new FormData(e.currentTarget);
         const data = {
-            firstName: formData.get("firstName")?.toString() ?? "",
-            lastName: formData.get("lastName")?.toString() ?? "",
+            name: formData.get("name")?.toString() ?? "",
             username: formData.get("username")?.toString() ?? "",
             email: formData.get("email")?.toString() ?? "",
             password: formData.get("password")?.toString() ?? "",
@@ -66,8 +64,8 @@ function SignupForm({ onSuccess }) {
 
         setIsSubmitting(true);
         try {
-            const { passwordConfirm: _, ...payload } = result.data;
-            await signup(payload);
+            const { name, passwordConfirm: _, ...rest } = result.data;
+            await signup({ ...rest, firstName: name, lastName: "" });
             onSuccess(result.data.email);
         } catch (err) {
             setError(err.message || "회원가입에 실패했습니다.");
@@ -77,8 +75,7 @@ function SignupForm({ onSuccess }) {
     };
 
     const fields = [
-        { name: "lastName", label: "성", type: "text", placeholder: "홍", autoComplete: "family-name" },
-        { name: "firstName", label: "이름", type: "text", placeholder: "길동", autoComplete: "given-name" },
+        { name: "name", label: "이름", type: "text", placeholder: "이름", autoComplete: "name" },
         { name: "username", label: "아이디", type: "text", placeholder: "아이디", autoComplete: "username" },
         { name: "email", label: "이메일", type: "email", placeholder: "example@email.com", autoComplete: "email" },
         { name: "password", label: "비밀번호", type: "password", placeholder: "8자 이상", autoComplete: "new-password" },
