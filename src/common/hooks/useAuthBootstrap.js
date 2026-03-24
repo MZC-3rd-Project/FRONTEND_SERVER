@@ -4,6 +4,10 @@ import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { fetchProfile } from "@/domains/client/profile/api/profileApi.js";
 import { normalizeProfile } from "@/domains/client/profile/lib/profileMappers.js";
 
+function hasAuthenticatedIdentity(profile) {
+    return Boolean(profile?.userId || profile?.email);
+}
+
 export function useAuthBootstrap() {
     const isResolved = useAuthStore((state) => state.isResolved);
     const resolveAuth = useAuthStore((state) => state.resolveAuth);
@@ -21,7 +25,14 @@ export function useAuthBootstrap() {
                     return;
                 }
 
-                resolveAuth(normalizeProfile(payload));
+                const normalizedProfile = normalizeProfile(payload);
+
+                if (!hasAuthenticatedIdentity(normalizedProfile)) {
+                    resolveAuth(null);
+                    return;
+                }
+
+                resolveAuth(normalizedProfile);
             })
             .catch((error) => {
                 if (cancelled) {

@@ -6,6 +6,14 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "spa_rewrite" {
+  name    = "${var.project_name}-spa-rewrite"
+  runtime = "cloudfront-js-1.0"
+  comment = "Rewrite SPA routes to /index.html without affecting API/auth origins"
+  publish = true
+  code    = file("${path.module}/spa_rewrite.js")
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -80,6 +88,11 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl     = 0
     default_ttl = 0
     max_ttl     = 0
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_rewrite.arn
+    }
   }
 
   ordered_cache_behavior {
@@ -269,21 +282,6 @@ resource "aws_cloudfront_distribution" "frontend" {
     min_ttl     = 31536000
     default_ttl = 31536000
     max_ttl     = 31536000
-  }
-
-  # SPA 라우팅: 404/403 → index.html로 리다이렉트
-  custom_error_response {
-    error_code            = 403
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 200
-    response_page_path    = "/index.html"
-    error_caching_min_ttl = 0
   }
 
   restrictions {
