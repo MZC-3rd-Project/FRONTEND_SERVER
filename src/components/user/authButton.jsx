@@ -1,6 +1,9 @@
+import { buildAuthLoginPath } from "@/common/api/authNavigation.js";
 import { Button } from "../ui/button";
 
 export function AuthButtons() {
+    const loginHref = buildAuthLoginPath();
+
     return (
         <div className="flex items-center gap-2">
             <Button
@@ -8,7 +11,7 @@ export function AuthButtons() {
                 asChild
                 className="h-9 rounded-full border-zinc-300 bg-white/80 px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100"
             >
-                <a href="/auth/login">로그인</a>
+                <a href={loginHref}>로그인</a>
             </Button>
             <Button
                 asChild

@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buildAuthLoginPath } from "@/common/api/authNavigation.js";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 import {
     Empty,
@@ -501,7 +502,7 @@ function MessagesPage() {
                         <span>{roomsQuery.error?.message ?? "잠시 후 다시 시도해 주세요."}</span>
                         {roomsQuery.error?.status === 401 ? (
                             <Button asChild type="button" size="sm" variant="outline">
-                                <Link to="/auth/login">로그인하러 가기</Link>
+                                <Link to={buildAuthLoginPath()}>로그인하러 가기</Link>
                             </Button>
                         ) : null}
                         <Button type="button" size="sm" variant="outline" onClick={() => roomsQuery.refetch()}>

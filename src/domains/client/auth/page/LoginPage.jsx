@@ -3,7 +3,7 @@ import { Link, useLocation, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { normalizeAuthRedirectPath } from "@/common/api/authNavigation.js";
+import { normalizeAuthRedirectPath, rememberPostLoginRedirect } from "@/common/api/authNavigation.js";
 
 function LoginPage() {
     const [searchParams] = useSearchParams();
@@ -13,6 +13,7 @@ function LoginPage() {
 
     const handleLogin = () => {
         const redirectPath = normalizeAuthRedirectPath(searchParams.get("redirect"));
+        rememberPostLoginRedirect(redirectPath);
         const loginUrl = `/oauth2/authorization/keycloak?redirect=${encodeURIComponent(redirectPath)}`;
         window.location.href = loginUrl;
     };

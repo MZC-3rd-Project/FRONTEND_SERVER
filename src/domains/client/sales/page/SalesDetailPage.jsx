@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import StickyStoreChat from "@/components/chat/StickyStoreChat.jsx";
 import DetailReviewSection from "@/components/commerce/DetailReviewSection.jsx";
+import { buildAuthLoginPath } from "@/common/api/authNavigation.js";
 import { buildSaleCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
 import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
 import { SALES_IMAGE_PLACEHOLDER } from "@/domains/client/sales/lib/salesMappers";
@@ -83,7 +84,7 @@ function SalesDetailPage() {
                         <div className="flex flex-wrap gap-2">
                             {error?.status === 401 ? (
                                 <Button asChild>
-                                    <Link to="/auth/login">로그인하러 가기</Link>
+                                    <Link to={buildAuthLoginPath()}>로그인하러 가기</Link>
                                 </Button>
                             ) : null}
                             <Button type="button" onClick={() => refetch()} disabled={isFetching}>
