@@ -43,6 +43,59 @@ const CHECKING = "checking";
 const AVAILABLE = "available";
 const UNAVAILABLE = "unavailable";
 
+const PASSWORD_RULES = [
+    { test: (v) => v.length >= 8, label: "8자 이상" },
+    { test: (v) => /[a-zA-Z]/.test(v), label: "영문 포함" },
+    { test: (v) => /[0-9]/.test(v), label: "숫자 포함" },
+];
+
+function PasswordStrength({ password }) {
+    if (!password) return null;
+    const passed = PASSWORD_RULES.filter((r) => r.test(password)).length;
+    const ratio = passed / PASSWORD_RULES.length;
+    const barColor =
+        ratio <= 1 / 3
+            ? "bg-red-500"
+            : ratio <= 2 / 3
+              ? "bg-yellow-500"
+              : "bg-green-500";
+    const label = ratio <= 1 / 3 ? "약함" : ratio <= 2 / 3 ? "보통" : "강함";
+
+    return (
+        <div className="mt-2 space-y-1.5">
+            <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                    <div
+                        className={`h-full rounded-full transition-all ${barColor}`}
+                        style={{ width: `${ratio * 100}%` }}
+                    />
+                </div>
+                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    {label}
+                </span>
+            </div>
+            <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+                {PASSWORD_RULES.map((rule) => {
+                    const ok = rule.test(password);
+                    return (
+                        <li
+                            key={rule.label}
+                            className={`flex items-center gap-1 text-xs ${ok ? "text-green-600 dark:text-green-400" : "text-zinc-400 dark:text-zinc-500"}`}
+                        >
+                            {ok ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                            ) : (
+                                <XCircle className="h-3 w-3" />
+                            )}
+                            {rule.label}
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+}
+
 function CheckBadge({ status }) {
     if (status === AVAILABLE)
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
@@ -513,6 +566,7 @@ function JoinPage() {
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
+                            <PasswordStrength password={formData.password} />
                             <FieldError message={fieldErrors.password} id="password-error" />
                         </div>
 
