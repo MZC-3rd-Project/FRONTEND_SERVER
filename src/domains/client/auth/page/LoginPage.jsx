@@ -1,77 +1,20 @@
-import { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
-import { Eye, EyeOff } from "lucide-react";
+import { Link, useLocation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { normalizeAuthRedirectPath } from "@/common/api/authNavigation.js";
-import { useAuthStore } from "@/common/store/useAuthStore.js";
-import { fetchProfile } from "@/domains/client/profile/api/profileApi.js";
-import { normalizeProfile } from "@/domains/client/profile/lib/profileMappers.js";
 
 function LoginPage() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { state } = useLocation();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const login = useAuthStore((state) => state.login);
-    const redirectPath = useMemo(
-        () => normalizeAuthRedirectPath(searchParams.get("redirect")),
-        [searchParams]
-    );
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const error = searchParams.get("error");
 
-        const formData = new FormData(event.currentTarget);
-        const body = new URLSearchParams();
-
-        body.set("username", String(formData.get("username") ?? ""));
-        body.set("password", String(formData.get("password") ?? ""));
-
-        setIsSubmitting(true);
-        setSubmitError("");
-
-        try {
-            const response = await fetch("/login", {
-                method: "POST",
-                body,
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-            });
-
-            const finalUrl = response.url ? new URL(response.url, window.location.origin) : null;
-            const isGatewayLoginPage = finalUrl?.pathname === "/login";
-            const hasLoginError = finalUrl?.searchParams?.has("error") === true;
-
-            if (!response.ok || isGatewayLoginPage || hasLoginError) {
-                const errorParam = finalUrl?.searchParams?.get("error") ?? "";
-                if (errorParam === "email_not_verified") {
-                    setSubmitError("EMAIL_NOT_VERIFIED");
-                } else {
-                    setSubmitError("로그인에 실패했습니다. 아이디와 비밀번호를 다시 확인해 주세요.");
-                }
-                return;
-            }
-
-            try {
-                const profilePayload = await fetchProfile({ skipAuthRedirect: true });
-                login(normalizeProfile(profilePayload));
-            } catch {
-                login({ email: body.get("username") });
-            }
-            navigate(redirectPath, { replace: true });
-        } catch (error) {
-            setSubmitError(error instanceof Error ? error.message : "로그인 요청에 실패했습니다.");
-        } finally {
-            setIsSubmitting(false);
-        }
+    const handleLogin = () => {
+        const redirectPath = normalizeAuthRedirectPath(searchParams.get("redirect"));
+        const loginUrl = `/oauth2/authorization/keycloak?redirect=${encodeURIComponent(redirectPath)}`;
+        window.location.href = loginUrl;
     };
 
     return (
@@ -81,7 +24,7 @@ function LoginPage() {
                     <CardTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                         로그인
                     </CardTitle>
-                    <CardDescription>이메일과 비밀번호로 로그인하세요.</CardDescription>
+                    <CardDescription>Keycloak을 통해 안전하게 로그인하세요.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {state?.message && (
@@ -89,7 +32,7 @@ function LoginPage() {
                             <AlertDescription>{state.message}</AlertDescription>
                         </Alert>
                     )}
-                    {submitError === "EMAIL_NOT_VERIFIED" ? (
+                    {error === "email_not_verified" ? (
                         <Alert variant="destructive">
                             <AlertTitle>이메일 인증 필요</AlertTitle>
                             <AlertDescription>
@@ -99,68 +42,20 @@ function LoginPage() {
                                 </Link>
                             </AlertDescription>
                         </Alert>
-                    ) : submitError ? (
+                    ) : error ? (
                         <Alert variant="destructive">
                             <AlertTitle>로그인 실패</AlertTitle>
-                            <AlertDescription>{submitError}</AlertDescription>
+                            <AlertDescription>
+                                로그인에 실패했습니다. 다시 시도해 주세요.
+                            </AlertDescription>
                         </Alert>
                     ) : null}
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                        <div>
-                            <label
-                                htmlFor="username"
-                                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-                            >
-                                이메일
-                            </label>
-                            <Input
-                                id="username"
-                                type="text"
-                                name="username"
-                                placeholder="이메일 주소"
-                                autoComplete="username"
-                                required
-                                className="dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-                                disabled={isSubmitting}
-                            />
-                        </div>
-                        <div>
-                            <label
-                                htmlFor="password"
-                                className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-                            >
-                                비밀번호
-                            </label>
-                            <div className="relative">
-                                <Input
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    placeholder="비밀번호"
-                                    autoComplete="current-password"
-                                    required
-                                    className="pr-10 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-                                    disabled={isSubmitting}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword((p) => !p)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
-                                    aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
-                                    tabIndex={-1}
-                                >
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </button>
-                            </div>
-                        </div>
-                        <Button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full rounded-full bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-                        >
-                            {isSubmitting ? "로그인 중..." : "로그인"}
-                        </Button>
-                    </form>
+                    <Button
+                        onClick={handleLogin}
+                        className="w-full rounded-full bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                    >
+                        로그인
+                    </Button>
                     <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
                         계정이 없나요?{" "}
                         <Link
