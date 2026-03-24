@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
     AlertCircle,
     CreditCard,
@@ -9,6 +9,7 @@ import {
     ShieldCheck,
     TicketPercent,
 } from "lucide-react";
+import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
-import { coupons, paymentMethods, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
+import { coupons, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 import {
     useReserveCheckout,
@@ -28,6 +29,9 @@ import {
     isStockInsufficient,
     isReservationExpired,
 } from "@/domains/client/checkout/lib/checkoutErrors";
+
+const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
+const TOSS_CUSTOMER_KEY = `don-moa-${Date.now()}`;
 
 function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
     if (!selectedCoupon) return 0;
@@ -118,7 +122,6 @@ function CheckoutPageSkeleton() {
 }
 
 function CheckoutPage() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const directMode = searchParams.get("mode") === "direct";
     const directStoreId = searchParams.get("storeId") ?? "";
@@ -193,7 +196,6 @@ function CheckoutPage() {
     // 폼 상태 — 배송지/쿠폰/결제수단/포인트 (mock 기반)
     const [selectedAddressId, setSelectedAddressId] = useState(shippingAddresses[0]?.id ?? "");
     const [selectedCouponId, setSelectedCouponId] = useState("");
-    const [selectedPaymentId, setSelectedPaymentId] = useState(paymentMethods[0]?.id ?? "");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
 
@@ -215,11 +217,9 @@ function CheckoutPage() {
     const selectedAddress =
         shippingAddresses.find((address) => address.id === selectedAddressId) ??
         shippingAddresses[0];
-    const selectedPayment =
-        paymentMethods.find((method) => method.id === selectedPaymentId) ?? paymentMethods[0];
     const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting;
 
-    // 체크아웃 3단계: reservations → (quotes 생략, 프론트 계산) → submit
+    // 체크아웃: reservations → submit → 토스 결제창
     const handleSubmitCheckout = async () => {
         if (!isCheckoutReady) return;
 
@@ -230,11 +230,11 @@ function CheckoutPage() {
             // Step 1: 재고 예약
             const cartItemIds = checkoutItems.map((item) => item.id);
             const reservation = await reserveMutation.mutateAsync(cartItemIds);
-            const orderId = reservation?.orderId;
+            const orderId = reservation?.orderId ?? `DM${Date.now()}`;
             orderIdRef.current = orderId;
 
-            // Step 2: 주문 확정 (배송정보 제출)
-            const result = await submitMutation.mutateAsync({
+            // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
+            await submitMutation.mutateAsync({
                 orderId,
                 shippingAddress: {
                     receiver: selectedAddress.receiver,
@@ -246,16 +246,37 @@ function CheckoutPage() {
                 deliveryMessage,
             });
 
-            // TODO: Step 3 — 토스페이먼츠 결제 (Epic #28, Payment 서비스 완성 후)
-            // 현재는 submit 성공 = 주문 완료로 처리
-            navigate(
-                `/order/complete?orderId=${result?.orderId ?? orderId}&amount=${finalAmount}`,
-            );
+            // Step 3: 토스페이먼츠 결제창 호출
+            const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+            const payment = tossPayments.payment({ customerKey: TOSS_CUSTOMER_KEY });
+
+            const orderName =
+                checkoutItems.length === 1
+                    ? checkoutItems[0].name
+                    : `${checkoutItems[0].name} 외 ${checkoutItems.length - 1}건`;
+
+            await payment.requestPayment({
+                method: "CARD",
+                amount: { currency: "KRW", value: finalAmount },
+                orderId,
+                orderName,
+                customerName: selectedAddress.receiver,
+                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}`,
+                failUrl: `${window.location.origin}/order/fail?orderId=${orderId}`,
+            });
+
+            // 토스가 successUrl로 리다이렉트하므로 여기까지 오지 않음
+            orderIdRef.current = null;
         } catch (error) {
-            setSubmitError(error);
+            // 토스 결제창에서 사용자가 닫기/취소한 경우
+            if (error?.code === "USER_CANCEL" || error?.message?.includes("취소")) {
+                setSubmitError({ code: "USER_CANCELED", message: "결제가 취소되었습니다." });
+            } else {
+                setSubmitError(error);
+            }
             setIsSubmitting(false);
 
-            // 예약까지 성공했으나 submit 실패 시 예약 취소
+            // 예약/주문이 생성된 상태에서 실패 시 취소
             if (orderIdRef.current) {
                 cancelMutation.mutate(orderIdRef.current);
                 orderIdRef.current = null;
@@ -415,34 +436,21 @@ function CheckoutPage() {
                     </CardContent>
                 </Card>
 
-                {/* 결제 수단 (mock) */}
+                {/* 결제 수단 — 토스페이먼츠 */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
                             <CreditCard className="h-4 w-4 text-primary" />
-                            결제 수단 (토스페이먼츠)
+                            결제 수단
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {paymentMethods.map((method) => (
-                            <button
-                                key={method.id}
-                                type="button"
-                                onClick={() => setSelectedPaymentId(method.id)}
-                                className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                                    selectedPaymentId === method.id
-                                        ? "border-primary bg-primary text-primary-foreground"
-                                        : "border-border bg-card text-foreground hover:border-primary"
-                                }`}
-                            >
-                                <p className="text-sm font-semibold">{method.name}</p>
-                                <p className="mt-1 text-xs opacity-85">{method.description}</p>
-                            </button>
-                        ))}
-
-                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-xs text-foreground">
-                            결제창 호출, 결제 승인/실패 콜백, 웹훅 검증은 토스페이먼츠 SDK 연동 시
-                            활성화됩니다.
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
+                            <p className="font-semibold">토스페이먼츠</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                결제하기 버튼을 누르면 토스페이먼츠 결제창이 열립니다.
+                                카드, 계좌이체, 간편결제(토스페이·네이버페이·카카오페이)를 선택할 수 있습니다.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -596,9 +604,9 @@ function CheckoutPage() {
                         </div>
 
                         <div className="rounded-2xl border border-border bg-muted p-3 text-xs text-muted-foreground">
-                            선택 결제수단:{" "}
+                            결제수단:{" "}
                             <span className="font-semibold text-foreground">
-                                {selectedPayment.name}
+                                토스페이먼츠
                             </span>
                             <br />
                             수령인:{" "}
@@ -644,11 +652,11 @@ function CheckoutPage() {
                     <CardContent className="p-4 text-xs text-foreground">
                         <p className="inline-flex items-center gap-1 font-semibold">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            Checkout 연결 상태
+                            결제 연동 상태
                         </p>
                         <p className="mt-1">
-                            주문 submit API가 연결되었습니다. 배송지/쿠폰/결제수단은 백엔드 서비스
-                            구현 후 교체 예정입니다.
+                            체크아웃 API + 토스페이먼츠 테스트 모드가 연동되어 있습니다.
+                            배송지/쿠폰은 백엔드 서비스 구현 후 교체 예정입니다.
                         </p>
                     </CardContent>
                 </Card>
