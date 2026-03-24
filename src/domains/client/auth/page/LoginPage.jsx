@@ -1,101 +1,38 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { normalizeAuthRedirectPath } from "@/common/api/authNavigation.js";
-import { useAuthStore } from "@/common/store/useAuthStore.js";
-import { fetchProfile } from "@/domains/client/profile/api/profileApi.js";
-import { normalizeProfile } from "@/domains/client/profile/lib/profileMappers.js";
-
-function resolveRedirectPath(rawRedirect) {
-    return normalizeAuthRedirectPath(rawRedirect);
-}
 
 function LoginPage() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState("");
-    const login = useAuthStore((state) => state.login);
-    const redirectPath = useMemo(
-        () => resolveRedirectPath(searchParams.get("redirect")),
-        [searchParams]
-    );
+    const { state } = useLocation();
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const error = searchParams.get("error");
 
-        const formData = new FormData(event.currentTarget);
-        const body = new URLSearchParams();
-
-        body.set("username", String(formData.get("username") ?? ""));
-        body.set("password", String(formData.get("password") ?? ""));
-
-        setIsSubmitting(true);
-        setSubmitError("");
-
-        try {
-            const response = await fetch("/login", {
-                method: "POST",
-                body,
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-            });
-
-            const finalUrl = response.url ? new URL(response.url, window.location.origin) : null;
-            const isGatewayLoginPage = finalUrl?.pathname === "/login";
-            const hasLoginError = finalUrl?.searchParams?.has("error") === true;
-
-            if (!response.ok || isGatewayLoginPage || hasLoginError) {
-                const errorParam = finalUrl?.searchParams?.get("error") ?? "";
-                if (errorParam === "email_not_verified") {
-                    setSubmitError("EMAIL_NOT_VERIFIED");
-                } else {
-                    setSubmitError("로그인에 실패했습니다. 아이디와 비밀번호를 다시 확인해 주세요.");
-                }
-                return;
-            }
-
-            try {
-                const profilePayload = await fetchProfile({ skipAuthRedirect: true });
-                login(normalizeProfile(profilePayload));
-            } catch {
-                login({ email: body.get("username") });
-            }
-            navigate(redirectPath, { replace: true });
-        } catch (error) {
-            setSubmitError(error instanceof Error ? error.message : "로그인 요청에 실패했습니다.");
-        } finally {
-            setIsSubmitting(false);
-        }
+    const handleLogin = () => {
+        const redirectPath = normalizeAuthRedirectPath(searchParams.get("redirect"));
+        const loginUrl = `/oauth2/authorization/keycloak?redirect=${encodeURIComponent(redirectPath)}`;
+        window.location.href = loginUrl;
     };
 
     return (
         <div className="grid min-h-[70vh] place-items-center py-6">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle className="text-xl font-bold">로그인</CardTitle>
+            <Card className="w-full max-w-md border-zinc-200/80 bg-white/95 dark:border-zinc-700/80 dark:bg-zinc-900/95">
+                <CardHeader className="text-center">
+                    <CardTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                        로그인
+                    </CardTitle>
+                    <CardDescription>Keycloak을 통해 안전하게 로그인하세요.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        개발 환경에서는 게이트웨이 dev 세션 로그인을 사용합니다.
-                    </p>
-                    <div className="rounded-2xl border border-border bg-accent/40 p-4 text-sm">
-                        <div className="flex flex-wrap gap-2">
-                            <Badge variant="outline">ID: test</Badge>
-                            <Badge variant="outline">PW: test123</Badge>
-                        </div>
-                        <p className="mt-3 text-xs text-muted-foreground">
-                            로그인 후 브라우저에 <span className="font-semibold text-foreground">SESSION</span> 쿠키가 저장되면
-                            프록시된 `/api`, `/bff` 요청에 사용자 컨텍스트가 자동으로 붙습니다.
-                        </p>
-                    </div>
-                    {submitError === "EMAIL_NOT_VERIFIED" ? (
+                    {state?.message && (
+                        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
+                            <AlertDescription>{state.message}</AlertDescription>
+                        </Alert>
+                    )}
+                    {error === "email_not_verified" ? (
                         <Alert variant="destructive">
                             <AlertTitle>이메일 인증 필요</AlertTitle>
                             <AlertDescription>
@@ -105,41 +42,28 @@ function LoginPage() {
                                 </Link>
                             </AlertDescription>
                         </Alert>
-                    ) : submitError ? (
+                    ) : error ? (
                         <Alert variant="destructive">
                             <AlertTitle>로그인 실패</AlertTitle>
-                            <AlertDescription>{submitError}</AlertDescription>
+                            <AlertDescription>
+                                로그인에 실패했습니다. 다시 시도해 주세요.
+                            </AlertDescription>
                         </Alert>
                     ) : null}
-                    <form onSubmit={handleSubmit} className="space-y-3">
-                        <label className="block space-y-1 text-sm">
-                            <span className="font-medium text-foreground">아이디</span>
-                            <input
-                                className="h-11 w-full rounded-2xl border border-input bg-background px-4"
-                                type="text"
-                                name="username"
-                                defaultValue="test"
-                                autoComplete="username"
-                                required
-                            />
-                        </label>
-                        <label className="block space-y-1 text-sm">
-                            <span className="font-medium text-foreground">비밀번호</span>
-                            <input
-                                className="h-11 w-full rounded-2xl border border-input bg-background px-4"
-                                type="password"
-                                name="password"
-                                defaultValue="test123"
-                                autoComplete="current-password"
-                                required
-                            />
-                        </label>
-                        <Button type="submit" className="w-full rounded-full" disabled={isSubmitting}>
-                            세션 로그인
-                        </Button>
-                    </form>
-                    <p className="text-center text-xs text-muted-foreground">
-                        로그인 후 원래 보고 있던 화면으로 자동 이동합니다.
+                    <Button
+                        onClick={handleLogin}
+                        className="w-full rounded-full bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                    >
+                        로그인
+                    </Button>
+                    <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                        계정이 없나요?{" "}
+                        <Link
+                            to="/auth/join"
+                            className="font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
+                        >
+                            회원가입
+                        </Link>
                     </p>
                 </CardContent>
             </Card>

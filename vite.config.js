@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
             },
             "/login": proxyOptions,
             "/logout": proxyOptions,
+            "/oauth2": proxyOptions,
           }
         : undefined,
     },
