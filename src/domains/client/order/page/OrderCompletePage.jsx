@@ -1,34 +1,79 @@
+import { useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
-import { CheckCircle2, Loader2, ReceiptText, Truck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, ReceiptText, Truck } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/domains/client/common/utils/format.js";
 import { useOrderDetailQuery } from "@/domains/client/order/query/useOrderQueries";
+import { useConfirmPayment } from "@/domains/client/payment/query/usePaymentQueries";
 
 function OrderCompletePage() {
     const [params] = useSearchParams();
     const orderId = params.get("orderId") ?? "";
     const fallbackAmount = Number(params.get("amount") ?? 0);
+    const paymentKey = params.get("paymentKey") ?? "";
 
-    const { data: order, isLoading } = useOrderDetailQuery(orderId);
+    // 결제 확인 API 호출 (토스 리다이렉트 후 1회만 실행)
+    const confirmMutation = useConfirmPayment();
+    const confirmedRef = useRef(false);
+
+    useEffect(() => {
+        if (paymentKey && orderId && fallbackAmount > 0 && !confirmedRef.current) {
+            confirmedRef.current = true;
+            confirmMutation.mutate({
+                paymentKey,
+                orderId,
+                amount: fallbackAmount,
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [paymentKey, orderId, fallbackAmount]);
+
+    // 결제 확인 완료 후 주문 상세 조회
+    const { data: order, isLoading: isOrderLoading } = useOrderDetailQuery(orderId);
+
+    const isConfirming = confirmMutation.isPending;
+    const confirmError = confirmMutation.error;
+    const isLoading = isConfirming || isOrderLoading;
 
     const displayAmount = order?.totalAmount ?? fallbackAmount;
     const displayPayment = order?.paymentMethod ?? "토스페이먼츠";
-    const displayStatus = order?.statusLabel ?? "결제완료";
+    const displayStatus = order?.statusLabel ?? (isConfirming ? "결제 확인 중..." : "결제완료");
     const orderItems = order?.items ?? [];
 
     return (
         <div className="mx-auto max-w-3xl space-y-6">
             <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 text-emerald-900 shadow-[0_14px_45px_rgba(16,185,129,0.15)] sm:p-8 dark:border-emerald-300/30 dark:bg-emerald-400/10 dark:text-emerald-100">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em]">Payment Success</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight">결제가 완료되었습니다</h2>
-                <p className="mt-2 text-sm">주문이 정상 접수되었고, 배송/티켓 발급 상태는 주문내역에서 확인할 수 있습니다.</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight">
+                    {isConfirming ? "결제를 확인하고 있습니다..." : "결제가 완료되었습니다"}
+                </h2>
+                <p className="mt-2 text-sm">
+                    {isConfirming
+                        ? "토스페이먼츠 결제 승인을 처리 중입니다. 잠시만 기다려 주세요."
+                        : "주문이 정상 접수되었고, 배송/티켓 발급 상태는 주문내역에서 확인할 수 있습니다."}
+                </p>
             </section>
+
+            {/* 결제 확인 에러 */}
+            {confirmError && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>결제 승인 실패</AlertTitle>
+                    <AlertDescription>
+                        {confirmError?.message ?? "결제 승인 중 오류가 발생했습니다. 주문 상세에서 상태를 확인해 주세요."}
+                    </AlertDescription>
+                </Alert>
+            )}
 
             {isLoading ? (
                 <div className="grid place-items-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        {isConfirming ? "결제 승인 처리 중..." : "주문 정보를 불러오는 중..."}
+                    </p>
                 </div>
             ) : (
                 <>
@@ -56,6 +101,14 @@ function OrderCompletePage() {
                                 <span>주문상태</span>
                                 <span className="font-semibold text-foreground">{displayStatus}</span>
                             </div>
+                            {paymentKey && (
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                    <span>결제 키</span>
+                                    <span className="max-w-[200px] truncate font-mono text-xs text-foreground">
+                                        {paymentKey}
+                                    </span>
+                                </div>
+                            )}
 
                             {orderItems.length > 0 && (
                                 <div className="space-y-2 pt-2">
