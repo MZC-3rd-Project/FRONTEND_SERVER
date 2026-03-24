@@ -56,7 +56,7 @@ export function redirectToAuthLogin(redirectPath) {
         return;
     }
 
-    if (window.location.pathname.startsWith("/auth/login")) {
+    if (window.location.pathname.startsWith("/auth/")) {
         return;
     }
 

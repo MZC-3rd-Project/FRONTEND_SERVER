@@ -123,10 +123,10 @@ function redirectToLoginOnUnauthorized(error) {
     }
 
     const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    const isLoginPage = currentPath.startsWith("/auth/login");
+    const isAuthPage = currentPath.startsWith("/auth/");
     const isGatewayLoginRequest = requestUrl.startsWith("/login");
 
-    if (isLoginPage || isGatewayLoginRequest) {
+    if (isAuthPage || isGatewayLoginRequest) {
         return Promise.reject(error);
     }
 
