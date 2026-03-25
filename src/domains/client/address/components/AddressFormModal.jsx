@@ -12,6 +12,7 @@ function getInitialValues(address) {
     // 주소는 카카오 재검색으로 채우고, 수령인 정보만 유지합니다.
     return {
         ...EMPTY_ADDRESS_FORM,
+        deliveryName: address.deliveryName ?? "",
         recipientName: address.recipientName ?? "",
         recipientPhone: address.recipientPhone ?? "",
         fullAddress: address.fullAddress ?? "",

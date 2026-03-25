@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const addressSchema = z.object({
+    deliveryName: z.string().min(1, "배송지 이름을 입력해주세요.").max(20, "최대 20자까지 입력 가능합니다."),
     recipientName: z.string().min(1, "수령인 이름을 입력해주세요.").max(20, "최대 20자까지 입력 가능합니다."),
     recipientPhone: z
         .string()
@@ -16,6 +17,7 @@ export const addressSchema = z.object({
 });
 
 export const EMPTY_ADDRESS_FORM = {
+    deliveryName: "",
     recipientName: "",
     recipientPhone: "",
     zipcode: "",

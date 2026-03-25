@@ -10,14 +10,14 @@ function AddressCard({ address, onEdit, onDelete, onSetDefault, isSettingDefault
             <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                     <MapPin className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">{address.recipientName}</span>
+                    <span className="truncate">{address.deliveryName || address.recipientName}</span>
                     {address.isDefault && (
                         <Badge className="rounded-full text-[11px] font-semibold shrink-0">기본</Badge>
                     )}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 text-sm text-muted-foreground">
-                {address.recipientPhone && <p>{address.recipientPhone}</p>}
+                <p>{address.recipientName} {address.recipientPhone}</p>
                 <p>{address.fullAddress}</p>
                 <div className="flex flex-wrap gap-2 pt-2">
                     <Button
