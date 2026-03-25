@@ -161,7 +161,7 @@ function CheckoutPage() {
     });
 
     // 배송지 조회
-    const { data: addresses = [] } = useAddresses();
+    const { data: addresses = [], refetch: refetchAddresses } = useAddresses();
 
     // 배송지 API mutations
     const createAddressMutation = useCreateAddress();
@@ -284,15 +284,22 @@ function CheckoutPage() {
                 sortOrder: 0,
             };
 
-            const created = await createAddressMutation.mutateAsync(payload);
-            const newId = created?.id ?? created?.addressId;
+            await createAddressMutation.mutateAsync(payload);
 
-            if (setAsDefault && newId) {
-                await setDefaultAddressMutation.mutateAsync(newId);
-            }
+            // 생성 응답에 ID가 없으므로 목록 refetch 후 새 주소를 찾는다
+            const { data: refreshed = [] } = await refetchAddresses();
+            const created = refreshed.find(
+                (a) =>
+                    a.recipientName === payload.recipientName &&
+                    a.zipcode === payload.zipcode &&
+                    a.recipientPhone === payload.recipientPhone,
+            ) ?? refreshed[refreshed.length - 1];
 
-            if (newId) {
-                setSelectedAddressId(newId);
+            if (created?.id) {
+                if (setAsDefault) {
+                    await setDefaultAddressMutation.mutateAsync(created.id);
+                }
+                setSelectedAddressId(created.id);
             }
 
             setShowAddressForm(false);
