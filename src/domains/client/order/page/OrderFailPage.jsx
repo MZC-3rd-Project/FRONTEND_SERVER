@@ -33,6 +33,7 @@ function OrderFailPage() {
     const orderId = params.get("orderId") ?? "";
     const code = params.get("code") ?? "PAY_PROCESS_ERROR";
     const message = params.get("message") ?? "";
+    const mode = params.get("mode") ?? "cart";
 
     const displayMessage =
         reasonMessages[code] ?? (message || "알 수 없는 오류가 발생했습니다.");
@@ -74,7 +75,7 @@ function OrderFailPage() {
 
             <div className="flex flex-wrap gap-2">
                 <Button asChild className="rounded-full px-5">
-                    <Link to="/checkout">
+                    <Link to={mode === "hotdeal" && orderId ? `/checkout?mode=hotdeal&orderId=${encodeURIComponent(orderId)}` : "/checkout"}>
                         <RefreshCw className="h-4 w-4" />
                         결제 다시 시도
                     </Link>

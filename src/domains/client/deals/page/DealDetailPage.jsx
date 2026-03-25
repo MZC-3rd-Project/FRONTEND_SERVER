@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
     AlertCircle,
     CheckCircle2,
@@ -26,8 +26,13 @@ import {
     useEnterHotDealQueueMutation,
     useHotDealDetailQuery,
     useHotDealQueueStatusQuery,
-    usePurchaseHotDealMutation,
+    useReserveHotDealCheckoutMutation,
 } from "@/domains/client/deals/query/useDealsQueries";
+import {
+    buildCheckoutIdempotencyKey,
+    createHotDealCheckoutReservationState,
+    persistHotDealCheckoutReservation,
+} from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 const HOT_DEAL_QUEUE_TOKEN_STORAGE_KEY_PREFIX = "hotdeal:queue-token:";
 const ESTIMATED_QUEUE_SECONDS_PER_USER = 2;
@@ -174,6 +179,7 @@ function renderProductImage(imageUrl, title, className) {
 }
 
 function DealDetailContent({ dealId, searchParams }) {
+    const navigate = useNavigate();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const itemId = searchParams.get("itemId") ?? "";
     const itemType = searchParams.get("itemType") ?? "PRODUCT";
@@ -183,7 +189,7 @@ function DealDetailContent({ dealId, searchParams }) {
         itemType,
     });
     const enterQueueMutation = useEnterHotDealQueueMutation();
-    const purchaseMutation = usePurchaseHotDealMutation();
+    const reserveCheckoutMutation = useReserveHotDealCheckoutMutation();
 
     const [queueToken, setQueueToken] = useState(() => readStoredQueueToken(dealId));
     const [queueSnapshot, setQueueSnapshot] = useState({
@@ -194,6 +200,7 @@ function DealDetailContent({ dealId, searchParams }) {
     const [isQueueModalOpen, setQueueModalOpen] = useState(false);
     const [queueFeedback, setQueueFeedback] = useState(null);
     const [purchaseResult, setPurchaseResult] = useState(null);
+    const [selectedQuantity, setSelectedQuantity] = useState(1);
 
     const queueStatusQuery = useHotDealQueueStatusQuery(deal?.hotDealId, {
         enabled: isAuthenticated && Boolean(queueToken) && Boolean(deal?.hotDealId) && !purchaseResult,
@@ -318,7 +325,11 @@ function DealDetailContent({ dealId, searchParams }) {
     const dealOpenForQueue = deal.canPurchase;
     const isWaitingInQueue = Boolean(activeQueueToken) && !effectiveQueueState.canPurchase && !purchaseResult;
     const canRequestPurchase = Boolean(activeQueueToken) && effectiveQueueState.canPurchase && !purchaseResult;
-    const actionBusy = enterQueueMutation.isPending || purchaseMutation.isPending;
+    const actionBusy = enterQueueMutation.isPending || reserveCheckoutMutation.isPending;
+    const maxSelectableQuantity = Math.max(
+        1,
+        Math.min(deal.maxPerUser ?? 1, Math.max(1, deal.remainingQuantity ?? 1)),
+    );
     const queueStatusMessage = queueSessionExpired
         ? "대기열 세션이 만료되었습니다. 다시 입장해 주세요."
         : queueStatusQuery.error?.status && queueStatusQuery.error?.status !== 401
@@ -374,7 +385,7 @@ function DealDetailContent({ dealId, searchParams }) {
         }
     };
 
-    const handlePurchase = async () => {
+    const handleReserveCheckout = async () => {
         if (!deal?.hotDealId) {
             return;
         }
@@ -382,13 +393,22 @@ function DealDetailContent({ dealId, searchParams }) {
         setQueueFeedback(null);
 
         try {
-            const result = await purchaseMutation.mutateAsync({
+            const payload = {
+                quantity: selectedQuantity,
+                token: queueToken || undefined,
+                idempotencyKey: buildCheckoutIdempotencyKey(),
+            };
+            const result = await reserveCheckoutMutation.mutateAsync({
                 hotDealId: deal.hotDealId,
-                payload: {
-                    quantity: 1,
-                    token: queueToken || undefined,
-                },
+                payload,
             });
+            const reservationState = createHotDealCheckoutReservationState({
+                reservation: result,
+                deal,
+                quantity: selectedQuantity,
+                idempotencyKey: payload.idempotencyKey,
+            });
+            persistHotDealCheckoutReservation(reservationState);
 
             persistQueueToken(deal.hotDealId, "");
             setQueueToken("");
@@ -401,13 +421,15 @@ function DealDetailContent({ dealId, searchParams }) {
             setQueueModalOpen(true);
             setQueueFeedback({
                 type: "success",
-                message: "핫딜 주문이 접수되었습니다.",
+                message: "핫딜 결제 예약이 완료되었습니다.",
             });
-            void refetch();
+            navigate(`/checkout?mode=hotdeal&orderId=${encodeURIComponent(result.orderId)}`, {
+                state: { hotDealReservation: reservationState },
+            });
         } catch (purchaseError) {
             setQueueFeedback({
                 type: "error",
-                message: purchaseError?.message ?? "핫딜 구매 요청에 실패했습니다.",
+                message: purchaseError?.message ?? "핫딜 결제 예약에 실패했습니다.",
             });
 
             if (purchaseError?.status === 401 || purchaseError?.status === 403) {
@@ -475,16 +497,16 @@ function DealDetailContent({ dealId, searchParams }) {
                         {canRequestPurchase ? (
                             <Button
                                 type="button"
-                                onClick={handlePurchase}
+                                onClick={handleReserveCheckout}
                                 disabled={actionBusy}
                                 className="rounded-full px-5"
                             >
-                                {purchaseMutation.isPending ? (
+                                {reserveCheckoutMutation.isPending ? (
                                     <LoaderCircle className="h-4 w-4 animate-spin" />
                                 ) : (
                                     <CheckCircle2 className="h-4 w-4" />
                                 )}
-                                {purchaseMutation.isPending ? "구매 요청 중..." : "핫딜 1개 구매하기"}
+                                {reserveCheckoutMutation.isPending ? "결제 페이지 준비 중..." : "결제 페이지로 이동"}
                             </Button>
                         ) : null}
 
@@ -553,6 +575,39 @@ function DealDetailContent({ dealId, searchParams }) {
                                 {deal.maxPerUser ? (
                                     <p className="mt-1 text-xs text-muted-foreground">1인당 최대 {deal.maxPerUser}개 구매 가능</p>
                                 ) : null}
+                            </div>
+
+                            <div className="rounded-2xl border border-border bg-card p-3">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">구매 수량</p>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="rounded-full"
+                                        disabled={Boolean(activeQueueToken) || selectedQuantity <= 1}
+                                        onClick={() => setSelectedQuantity((current) => Math.max(1, current - 1))}
+                                    >
+                                        -
+                                    </Button>
+                                    <div className="min-w-16 text-center text-2xl font-black text-foreground">
+                                        {selectedQuantity}
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="rounded-full"
+                                        disabled={Boolean(activeQueueToken) || selectedQuantity >= maxSelectableQuantity}
+                                        onClick={() => setSelectedQuantity((current) => Math.min(maxSelectableQuantity, current + 1))}
+                                    >
+                                        +
+                                    </Button>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    최대 {maxSelectableQuantity}개까지 선택할 수 있습니다.
+                                    {activeQueueToken ? " 대기열 입장 후에는 수량을 변경할 수 없습니다." : ""}
+                                </p>
                             </div>
 
                             {queueFeedback ? (

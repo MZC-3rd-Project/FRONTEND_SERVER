@@ -97,6 +97,64 @@ export async function purchaseHotDeal(hotDealId, { quantity = 1, token } = {}) {
     }
 }
 
+export async function reserveHotDealCheckout(hotDealId, { quantity = 1, token, idempotencyKey } = {}) {
+    try {
+        const response = await axiosInstance.post(
+            `/v1/hot-deals/${encodeIdPathSegment(hotDealId)}/checkout/reservations`,
+            {
+                quantity,
+                token,
+                idempotencyKey,
+            },
+            HOT_DEAL_REQUEST_CONFIG
+        );
+
+        return unwrapApiResponseBody(response, "핫딜 결제 예약에 실패했습니다.");
+    } catch (error) {
+        throw normalizeApiError(error, "핫딜 결제 예약에 실패했습니다.");
+    }
+}
+
+export async function submitHotDealCheckout({
+    orderId,
+    recipientName,
+    recipientPhone,
+    deliveryAddressId,
+    deliveryMemo,
+}) {
+    try {
+        const response = await axiosInstance.post(
+            "/v1/hot-deals/checkout/submit",
+            {
+                orderId,
+                recipientName,
+                recipientPhone,
+                deliveryAddressId,
+                deliveryMemo,
+            },
+            HOT_DEAL_REQUEST_CONFIG
+        );
+
+        return unwrapApiResponseBody(response, "핫딜 주문 생성에 실패했습니다.");
+    } catch (error) {
+        throw normalizeApiError(error, "핫딜 주문 생성에 실패했습니다.");
+    }
+}
+
+export async function cancelHotDealCheckout(orderId) {
+    try {
+        const response = await axiosInstance.post(
+            "/v1/hot-deals/checkout/cancellations",
+            { orderId },
+            HOT_DEAL_REQUEST_CONFIG
+        );
+
+        return unwrapApiResponseBody(response, "핫딜 결제 예약 취소에 실패했습니다.");
+    } catch (error) {
+        throw normalizeApiError(error, "핫딜 결제 예약 취소에 실패했습니다.");
+    }
+}
+
 export function buildHotDealQueueSseUrl(hotDealId, baseOrigin) {
     const origin = baseOrigin || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
     const baseURL = hotDealBaseURL.replace(/\/$/, "");

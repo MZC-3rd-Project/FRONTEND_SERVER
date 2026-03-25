@@ -6,6 +6,9 @@ import {
     fetchHotDealDetail,
     fetchHotDealQueueStatus,
     fetchHotDeals,
+    reserveHotDealCheckout,
+    submitHotDealCheckout,
+    cancelHotDealCheckout,
     purchaseHotDeal,
 } from "@/domains/client/deals/api/dealsApi";
 import { mapHotDealDetailPayload, mapHotDealListPayload } from "@/domains/client/deals/lib/dealsMappers";
@@ -98,5 +101,23 @@ export function useEnterHotDealQueueMutation() {
 export function usePurchaseHotDealMutation() {
     return useMutation({
         mutationFn: ({ hotDealId, payload }) => purchaseHotDeal(hotDealId, payload),
+    });
+}
+
+export function useReserveHotDealCheckoutMutation() {
+    return useMutation({
+        mutationFn: ({ hotDealId, payload }) => reserveHotDealCheckout(hotDealId, payload),
+    });
+}
+
+export function useSubmitHotDealCheckoutMutation() {
+    return useMutation({
+        mutationFn: (payload) => submitHotDealCheckout(payload),
+    });
+}
+
+export function useCancelHotDealCheckoutMutation() {
+    return useMutation({
+        mutationFn: (orderId) => cancelHotDealCheckout(orderId),
     });
 }

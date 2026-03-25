@@ -8,16 +8,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/domains/client/common/utils/format.js";
 import { useOrderDetailQuery } from "@/domains/client/order/query/useOrderQueries";
 import { useConfirmPayment } from "@/domains/client/payment/query/usePaymentQueries";
+import {
+    clearCartCheckoutReservation,
+    clearHotDealCheckoutReservation,
+} from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 function OrderCompletePage() {
     const [params] = useSearchParams();
     const orderId = params.get("orderId") ?? "";
     const fallbackAmount = Number(params.get("amount") ?? 0);
     const paymentKey = params.get("paymentKey") ?? "";
+    const mode = params.get("mode") ?? "";
 
     // 결제 확인 API 호출 (토스 리다이렉트 후 1회만 실행)
     const confirmMutation = useConfirmPayment();
     const confirmedRef = useRef(false);
+
+    useEffect(() => {
+        if (mode === "hotdeal") {
+            clearHotDealCheckoutReservation();
+        } else {
+            clearCartCheckoutReservation();
+        }
+    }, [mode]);
 
     useEffect(() => {
         if (paymentKey && orderId && fallbackAmount > 0 && !confirmedRef.current) {

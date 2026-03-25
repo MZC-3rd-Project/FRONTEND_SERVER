@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
+import { useCancelOrderMutation } from "@/domains/client/order/query/useOrderQueries";
 import { coupons } from "@/domains/client/order/mock/orderData.js";
 import { useAddresses } from "@/domains/client/address/query/useAddressQueries";
 import { useCreateAddress, useSetDefaultAddress } from "@/domains/client/address/hook/useAddressQuery";
@@ -31,6 +32,10 @@ import {
     useCancelCheckout,
 } from "@/domains/client/checkout/query/useCheckoutQueries";
 import {
+    useCancelHotDealCheckoutMutation,
+    useSubmitHotDealCheckoutMutation,
+} from "@/domains/client/deals/query/useDealsQueries";
+import {
     getCheckoutErrorMessage,
     isStockInsufficient,
     isReservationExpired,
@@ -38,9 +43,12 @@ import {
 import {
     buildCartCheckoutReservationPayload,
     clearCartCheckoutReservation,
+    clearHotDealCheckoutReservation,
     createCartCheckoutReservationState,
     persistCartCheckoutReservation,
+    persistHotDealCheckoutReservation,
     readCartCheckoutReservation,
+    readHotDealCheckoutReservation,
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
@@ -137,6 +145,7 @@ function CheckoutPage() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const directMode = searchParams.get("mode") === "direct";
+    const hotDealMode = searchParams.get("mode") === "hotdeal";
     const directStoreId = searchParams.get("storeId") ?? "";
     const directProductType = searchParams.get("productType") ?? "";
     const directProductId = searchParams.get("productId") ?? "";
@@ -157,7 +166,7 @@ function CheckoutPage() {
         refetch: refetchCart,
         isFetching: isCartFetching,
     } = useCartQuery({
-        enabled: !directMode,
+        enabled: !directMode && !hotDealMode,
     });
 
     // 배송지 조회
@@ -172,16 +181,27 @@ function CheckoutPage() {
     const reserveMutation = useReserveCheckout();
     const submitMutation = useSubmitCheckout();
     const cancelMutation = useCancelCheckout();
+    const submitHotDealMutation = useSubmitHotDealCheckoutMutation();
+    const cancelHotDealMutation = useCancelHotDealCheckoutMutation();
+    const cancelOrderMutation = useCancelOrderMutation();
 
     // 체크아웃 상태
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
     const orderIdRef = useRef(null);
+    const orderCreatedRef = useRef(false);
+    const paymentRedirectingRef = useRef(false);
     const [cartReservation, setCartReservation] = useState(() => {
-        if (directMode) {
+        if (directMode || hotDealMode) {
             return null;
         }
         return location.state?.cartReservation ?? readCartCheckoutReservation();
+    });
+    const [hotDealReservation, setHotDealReservation] = useState(() => {
+        if (!hotDealMode) {
+            return null;
+        }
+        return location.state?.hotDealReservation ?? readHotDealCheckoutReservation();
     });
 
     const directItem = useMemo(
@@ -209,8 +229,16 @@ function CheckoutPage() {
         [cart?.selectedItems, directMode],
     );
     const reservedCheckoutItems = useMemo(
-        () => (directMode ? [] : (cartReservation?.checkoutItems ?? [])),
-        [cartReservation, directMode],
+        () => {
+            if (directMode) {
+                return [];
+            }
+            if (hotDealMode) {
+                return hotDealReservation?.checkoutItems ?? [];
+            }
+            return cartReservation?.checkoutItems ?? [];
+        },
+        [cartReservation, directMode, hotDealMode, hotDealReservation],
     );
     const checkoutItems = useMemo(
         () => (directMode ? (directItem ? [directItem] : []) : (reservedCheckoutItems.length > 0 ? reservedCheckoutItems : cartCheckoutItems)),
@@ -310,15 +338,29 @@ function CheckoutPage() {
     useEffect(() => {
         if (directMode) {
             clearCartCheckoutReservation();
+            clearHotDealCheckoutReservation();
             setCartReservation(null);
+            setHotDealReservation(null);
             orderIdRef.current = null;
+            orderCreatedRef.current = false;
             return;
         }
 
+        if (hotDealMode) {
+            clearCartCheckoutReservation();
+            const nextReservation = location.state?.hotDealReservation ?? readHotDealCheckoutReservation();
+            setHotDealReservation(nextReservation ?? null);
+            orderIdRef.current = nextReservation?.orderId ?? null;
+            orderCreatedRef.current = Boolean(nextReservation?.submitted);
+            return;
+        }
+
+        clearHotDealCheckoutReservation();
         const nextReservation = location.state?.cartReservation ?? readCartCheckoutReservation();
         setCartReservation(nextReservation ?? null);
         orderIdRef.current = nextReservation?.orderId ?? null;
-    }, [directMode, location.state]);
+        orderCreatedRef.current = false;
+    }, [directMode, hotDealMode, location.state]);
 
     // 금액 계산
     const subtotal = useMemo(
@@ -348,9 +390,11 @@ function CheckoutPage() {
         setSubmitError(null);
 
         try {
-            let orderId = cartReservation?.orderId ?? null;
+            let orderId = hotDealMode
+                ? (hotDealReservation?.orderId ?? null)
+                : (cartReservation?.orderId ?? null);
 
-            if (!orderId) {
+            if (!orderId && !hotDealMode) {
                 const payload = buildCartCheckoutReservationPayload(cart?.selectedItems ?? []);
                 const reservation = await reserveMutation.mutateAsync(payload);
                 const reservationState = createCartCheckoutReservationState({
@@ -365,14 +409,31 @@ function CheckoutPage() {
 
             orderIdRef.current = orderId;
 
-            // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
-            await submitMutation.mutateAsync({
-                orderId,
-                recipientName: recipientName.trim(),
-                recipientPhone: recipientPhone.trim(),
-                deliveryAddressId: selectedAddress.id,
-                deliveryMemo: deliveryMessage,
-            });
+            if (hotDealMode) {
+                await submitHotDealMutation.mutateAsync({
+                    orderId,
+                    recipientName: recipientName.trim(),
+                    recipientPhone: recipientPhone.trim(),
+                    deliveryAddressId: selectedAddress.id,
+                    deliveryMemo: deliveryMessage,
+                });
+                orderCreatedRef.current = true;
+                const nextReservation = {
+                    ...(hotDealReservation ?? {}),
+                    submitted: true,
+                };
+                setHotDealReservation(nextReservation);
+                persistHotDealCheckoutReservation(nextReservation);
+            } else {
+                // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
+                await submitMutation.mutateAsync({
+                    orderId,
+                    recipientName: recipientName.trim(),
+                    recipientPhone: recipientPhone.trim(),
+                    deliveryAddressId: selectedAddress.id,
+                    deliveryMemo: deliveryMessage,
+                });
+            }
 
             // Step 3: 토스페이먼츠 결제창 호출
             const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
@@ -383,20 +444,23 @@ function CheckoutPage() {
                     ? checkoutItems[0].name
                     : `${checkoutItems[0].name} 외 ${checkoutItems.length - 1}건`;
 
+            paymentRedirectingRef.current = true;
             await payment.requestPayment({
                 method: "CARD",
                 amount: { currency: "KRW", value: finalAmount },
                 orderId,
                 orderName,
                 customerName: selectedAddress?.recipientName ?? "",
-                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}`,
-                failUrl: `${window.location.origin}/order/fail?orderId=${orderId}`,
+                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
+                failUrl: `${window.location.origin}/order/fail?orderId=${orderId}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
             });
 
             // 토스가 successUrl로 리다이렉트하므로 여기까지 오지 않음
             clearCartCheckoutReservation();
+            clearHotDealCheckoutReservation();
             orderIdRef.current = null;
         } catch (error) {
+            paymentRedirectingRef.current = false;
             // 토스 결제창에서 사용자가 닫기/취소한 경우
             if (error?.code === "USER_CANCEL" || error?.message?.includes("취소")) {
                 setSubmitError({ code: "USER_CANCELED", message: "결제가 취소되었습니다." });
@@ -407,9 +471,19 @@ function CheckoutPage() {
 
             // 예약/주문이 생성된 상태에서 실패 시 취소
             if (orderIdRef.current) {
-                cancelMutation.mutate(orderIdRef.current);
-                clearCartCheckoutReservation();
+                if (hotDealMode) {
+                    if (orderCreatedRef.current) {
+                        cancelOrderMutation.mutate(orderIdRef.current);
+                    } else {
+                        cancelHotDealMutation.mutate(orderIdRef.current);
+                    }
+                    clearHotDealCheckoutReservation();
+                } else {
+                    cancelMutation.mutate(orderIdRef.current);
+                    clearCartCheckoutReservation();
+                }
                 orderIdRef.current = null;
+                orderCreatedRef.current = false;
             }
         }
     };
@@ -426,22 +500,32 @@ function CheckoutPage() {
         return () => {
             window.removeEventListener("beforeunload", handleBeforeUnload);
             // 언마운트 시 예약이 남아있으면 취소
-            if (orderIdRef.current) {
-                cancelMutation.mutate(orderIdRef.current);
-                clearCartCheckoutReservation();
+            if (orderIdRef.current && !paymentRedirectingRef.current) {
+                if (hotDealMode) {
+                    if (orderCreatedRef.current) {
+                        cancelOrderMutation.mutate(orderIdRef.current);
+                    } else {
+                        cancelHotDealMutation.mutate(orderIdRef.current);
+                    }
+                    clearHotDealCheckoutReservation();
+                } else {
+                    cancelMutation.mutate(orderIdRef.current);
+                    clearCartCheckoutReservation();
+                }
                 orderIdRef.current = null;
+                orderCreatedRef.current = false;
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // --- 로딩 상태 ---
-    if (!directMode && isCartLoading) {
+    if (!directMode && !hotDealMode && isCartLoading) {
         return <CheckoutPageSkeleton />;
     }
 
     // --- 장바구니 에러 ---
-    if (!directMode && isCartError) {
+    if (!directMode && !hotDealMode && isCartError) {
         return (
             <div className="grid min-h-[60vh] place-items-center">
                 <Card className="w-full max-w-lg">
@@ -507,6 +591,14 @@ function CheckoutPage() {
                             선택 상품:{" "}
                             <span className="font-semibold">{directItem.name}</span>{" "}
                             {directItem.quantity}건을 결제합니다.
+                        </p>
+                    ) : hotDealMode ? (
+                        <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
+                            핫딜 상품:{" "}
+                            <span className="font-semibold">
+                                {hotDealReservation?.checkoutItems?.[0]?.name ?? "핫딜 상품"}
+                            </span>{" "}
+                            {hotDealReservation?.quantity ?? checkoutItems.length}건을 결제합니다.
                         </p>
                     ) : (
                         <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">

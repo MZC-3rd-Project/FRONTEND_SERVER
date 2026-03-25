@@ -1,6 +1,7 @@
 const CART_CHECKOUT_RESERVATION_STORAGE_KEY = "cart-checkout-reservation";
+const HOT_DEAL_CHECKOUT_RESERVATION_STORAGE_KEY = "hotdeal-checkout-reservation";
 
-function buildCheckoutIdempotencyKey() {
+export function buildCheckoutIdempotencyKey() {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
         return crypto.randomUUID();
     }
@@ -78,4 +79,64 @@ export function persistCartCheckoutReservation(reservation) {
 
 export function clearCartCheckoutReservation() {
     persistCartCheckoutReservation(null);
+}
+
+export function createHotDealCheckoutReservationState({ reservation, deal, quantity, idempotencyKey }) {
+    return {
+        mode: "hotdeal",
+        hotDealId: deal?.hotDealId ?? deal?.id ?? "",
+        orderId: reservation?.orderId ?? "",
+        expiresAt: reservation?.expiresAt ?? null,
+        quantity,
+        unitPrice: deal?.discountedPrice ?? 0,
+        totalAmount: (deal?.discountedPrice ?? 0) * quantity,
+        checkoutItems: [
+            {
+                id: `hotdeal-${deal?.hotDealId ?? deal?.id ?? ""}`,
+                kind: "핫딜",
+                storeId: deal?.store?.id ?? null,
+                storeName: deal?.store?.name ?? "핫딜",
+                name: deal?.title ?? "핫딜 상품",
+                option: `핫딜 · 수량 ${quantity}개`,
+                thumbnail: deal?.thumbnailUrl ?? deal?.item?.thumbnailUrl ?? "",
+                quantity,
+                unitPrice: deal?.discountedPrice ?? 0,
+            },
+        ],
+        idempotencyKey,
+        submitted: false,
+    };
+}
+
+export function readHotDealCheckoutReservation() {
+    if (typeof window === "undefined") {
+        return null;
+    }
+
+    try {
+        const raw = window.sessionStorage.getItem(HOT_DEAL_CHECKOUT_RESERVATION_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+export function persistHotDealCheckoutReservation(reservation) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    try {
+        if (!reservation) {
+            window.sessionStorage.removeItem(HOT_DEAL_CHECKOUT_RESERVATION_STORAGE_KEY);
+            return;
+        }
+        window.sessionStorage.setItem(HOT_DEAL_CHECKOUT_RESERVATION_STORAGE_KEY, JSON.stringify(reservation));
+    } catch {
+        // Ignore storage failures and keep checkout flow in-memory.
+    }
+}
+
+export function clearHotDealCheckoutReservation() {
+    persistHotDealCheckoutReservation(null);
 }
