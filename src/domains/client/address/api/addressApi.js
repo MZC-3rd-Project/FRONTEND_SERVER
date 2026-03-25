@@ -15,7 +15,7 @@ export async function createAddress(data) {
         const response = await axiosInstance.post("/profile/addresses", data);
         return unwrapApiResponseBody(response, "배송지 추가에 실패했습니다.");
     } catch (error) {
-        throw normalizeApiError(error, "배송지 추가 요청에 실패했습니다.");
+        throw normalizeApiError(error, "배송지 추가에 실패했습니다.");
     }
 }
 
@@ -24,7 +24,7 @@ export async function updateAddress(addressId, data) {
         const response = await axiosInstance.put(`/profile/addresses/${addressId}`, data);
         return unwrapApiResponseBody(response, "배송지 수정에 실패했습니다.");
     } catch (error) {
-        throw normalizeApiError(error, "배송지 수정 요청에 실패했습니다.");
+        throw normalizeApiError(error, "배송지 수정에 실패했습니다.");
     }
 }
 
@@ -33,7 +33,7 @@ export async function deleteAddress(addressId) {
         const response = await axiosInstance.delete(`/profile/addresses/${addressId}`);
         return unwrapApiResponseBody(response, "배송지 삭제에 실패했습니다.");
     } catch (error) {
-        throw normalizeApiError(error, "배송지 삭제 요청에 실패했습니다.");
+        throw normalizeApiError(error, "배송지 삭제에 실패했습니다.");
     }
 }
 
@@ -42,6 +42,6 @@ export async function setDefaultAddress(addressId) {
         const response = await axiosInstance.patch(`/profile/addresses/${addressId}/default`);
         return unwrapApiResponseBody(response, "기본 배송지 설정에 실패했습니다.");
     } catch (error) {
-        throw normalizeApiError(error, "기본 배송지 설정 요청에 실패했습니다.");
+        throw normalizeApiError(error, "기본 배송지 설정에 실패했습니다.");
     }
 }
