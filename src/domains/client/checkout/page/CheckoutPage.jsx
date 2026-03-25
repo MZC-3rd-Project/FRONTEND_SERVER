@@ -5,7 +5,9 @@ import {
     CreditCard,
     Loader2,
     MapPin,
+    Plus,
     RefreshCw,
+    Search,
     ShieldCheck,
     TicketPercent,
 } from "lucide-react";
@@ -20,6 +22,8 @@ import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { coupons } from "@/domains/client/order/mock/orderData.js";
 import { useAddresses } from "@/domains/client/address/query/useAddressQueries";
+import { useCreateAddress, useSetDefaultAddress } from "@/domains/client/address/hook/useAddressQuery";
+import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 import {
     useReserveCheckout,
@@ -159,6 +163,11 @@ function CheckoutPage() {
     // 배송지 조회
     const { data: addresses = [] } = useAddresses();
 
+    // 배송지 API mutations
+    const createAddressMutation = useCreateAddress();
+    const setDefaultAddressMutation = useSetDefaultAddress();
+    const { open: openPostcode } = useKakaoPostcode();
+
     // 체크아웃 API mutations
     const reserveMutation = useReserveCheckout();
     const submitMutation = useSubmitCheckout();
@@ -235,6 +244,65 @@ function CheckoutPage() {
     }, [addresses, selectedAddressId]);
     const [recipientName, setRecipientName] = useState("");
     const [recipientPhone, setRecipientPhone] = useState("");
+
+    // 배송지 추가 폼 상태
+    const [showAddressForm, setShowAddressForm] = useState(false);
+    const [newAddress, setNewAddress] = useState({ zipcode: "", fullAddress: "", detailAddress: "" });
+    const [setAsDefault, setSetAsDefault] = useState(false);
+    const [addressSaveError, setAddressSaveError] = useState(null);
+
+    const handleAddressSearch = () => {
+        openPostcode((result) => {
+            setNewAddress((prev) => ({
+                ...prev,
+                zipcode: result.zipcode,
+                fullAddress: result.fullAddress,
+                sido: result.sido,
+                sigungu: result.sigungu,
+                roadName: result.roadName,
+                buildingNumber: result.buildingNumber,
+                buildingName: result.buildingName,
+            }));
+        });
+    };
+
+    const handleSaveNewAddress = async () => {
+        if (!recipientName.trim() || !recipientPhone.trim() || !newAddress.zipcode) return;
+
+        setAddressSaveError(null);
+        try {
+            const payload = {
+                recipientName: recipientName.trim(),
+                recipientPhone: recipientPhone.trim(),
+                zipcode: newAddress.zipcode,
+                sido: newAddress.sido,
+                sigungu: newAddress.sigungu,
+                roadName: newAddress.roadName,
+                buildingNumber: newAddress.buildingNumber,
+                buildingName: newAddress.buildingName ?? "",
+                detailAddress: newAddress.detailAddress ?? "",
+                sortOrder: 0,
+            };
+
+            const created = await createAddressMutation.mutateAsync(payload);
+            const newId = created?.id ?? created?.addressId;
+
+            if (setAsDefault && newId) {
+                await setDefaultAddressMutation.mutateAsync(newId);
+            }
+
+            if (newId) {
+                setSelectedAddressId(newId);
+            }
+
+            setShowAddressForm(false);
+            setNewAddress({ zipcode: "", fullAddress: "", detailAddress: "" });
+            setSetAsDefault(false);
+        } catch (error) {
+            setAddressSaveError(error?.message ?? "배송지 저장에 실패했습니다.");
+        }
+    };
+
     const [selectedCouponId, setSelectedCouponId] = useState("");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
@@ -270,7 +338,7 @@ function CheckoutPage() {
     const selectedAddress =
         addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
     const hasRecipientInfo = Boolean(recipientName.trim() && recipientPhone.trim());
-    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo;
+    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo && !showAddressForm && Boolean(selectedAddress);
 
     // 체크아웃: reservations → submit → 토스 결제창
     const handleSubmitCheckout = async () => {
@@ -460,11 +528,8 @@ function CheckoutPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {addresses.length === 0 ? (
-                            <p className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
-                                등록된 배송지가 없습니다. 배송지 관리 페이지에서 배송지를 추가해 주세요.
-                            </p>
-                        ) : (
+                        {/* 기존 배송지 목록 */}
+                        {addresses.length > 0 &&
                             addresses.map((address) => (
                                 <button
                                     key={address.id}
@@ -473,9 +538,10 @@ function CheckoutPage() {
                                         setSelectedAddressId(address.id);
                                         setRecipientName(address.recipientName ?? "");
                                         setRecipientPhone(address.recipientPhone ?? "");
+                                        setShowAddressForm(false);
                                     }}
                                     className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                                        selectedAddressId === address.id
+                                        selectedAddressId === address.id && !showAddressForm
                                             ? "border-primary bg-primary text-primary-foreground"
                                             : "border-border bg-card text-foreground hover:border-primary"
                                     }`}
@@ -494,28 +560,151 @@ function CheckoutPage() {
                                     </p>
                                 </button>
                             ))
+                        }
+
+                        {/* 새 배송지 추가 버튼 / 폼 */}
+                        {!showAddressForm ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-2xl h-12"
+                                onClick={() => {
+                                    setShowAddressForm(true);
+                                    setSelectedAddressId("");
+                                    setRecipientName("");
+                                    setRecipientPhone("");
+                                    setNewAddress({ zipcode: "", fullAddress: "", detailAddress: "" });
+                                }}
+                            >
+                                <Plus className="h-4 w-4" />
+                                새 배송지 추가
+                            </Button>
+                        ) : (
+                            <div className="rounded-2xl border border-primary p-4 space-y-3">
+                                <p className="text-sm font-semibold">새 배송지 추가</p>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <Input
+                                        value={recipientName}
+                                        onChange={(e) => setRecipientName(e.target.value)}
+                                        placeholder="수령인 이름"
+                                        maxLength={20}
+                                    />
+                                    <Input
+                                        type="tel"
+                                        value={recipientPhone}
+                                        onChange={(e) => setRecipientPhone(e.target.value)}
+                                        placeholder="연락처 (010-1234-5678)"
+                                        maxLength={13}
+                                    />
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={newAddress.zipcode}
+                                        readOnly
+                                        placeholder="우편번호"
+                                        className="w-32 bg-muted cursor-default"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="flex-1"
+                                        onClick={handleAddressSearch}
+                                    >
+                                        <Search className="h-4 w-4" />
+                                        주소 검색
+                                    </Button>
+                                </div>
+
+                                {newAddress.fullAddress && (
+                                    <Input
+                                        value={newAddress.fullAddress}
+                                        readOnly
+                                        className="bg-muted cursor-default"
+                                    />
+                                )}
+
+                                <Input
+                                    value={newAddress.detailAddress}
+                                    onChange={(e) =>
+                                        setNewAddress((prev) => ({ ...prev, detailAddress: e.target.value }))
+                                    }
+                                    placeholder="상세주소 (동·호수, 층 등)"
+                                    disabled={!newAddress.zipcode}
+                                />
+
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={setAsDefault}
+                                        onChange={(e) => setSetAsDefault(e.target.checked)}
+                                        className="h-4 w-4 rounded border-border"
+                                    />
+                                    기본 배송지로 설정
+                                </label>
+
+                                {addressSaveError && (
+                                    <p className="text-xs text-destructive">{addressSaveError}</p>
+                                )}
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="flex-1 rounded-full"
+                                        onClick={() => {
+                                            setShowAddressForm(false);
+                                            if (addresses.length > 0) {
+                                                const fallback = addresses.find((a) => a.isDefault) ?? addresses[0];
+                                                setSelectedAddressId(fallback.id);
+                                                setRecipientName(fallback.recipientName ?? "");
+                                                setRecipientPhone(fallback.recipientPhone ?? "");
+                                            }
+                                        }}
+                                    >
+                                        취소
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        className="flex-[2] rounded-full"
+                                        disabled={
+                                            !recipientName.trim() ||
+                                            !recipientPhone.trim() ||
+                                            !newAddress.zipcode ||
+                                            createAddressMutation.isPending
+                                        }
+                                        onClick={handleSaveNewAddress}
+                                    >
+                                        {createAddressMutation.isPending ? "저장 중..." : "배송지 저장"}
+                                    </Button>
+                                </div>
+                            </div>
                         )}
 
-                        <div className="space-y-3 pt-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                수령인 정보
-                            </p>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <Input
-                                    value={recipientName}
-                                    onChange={(e) => setRecipientName(e.target.value)}
-                                    placeholder="수령인 이름"
-                                    maxLength={20}
-                                />
-                                <Input
-                                    type="tel"
-                                    value={recipientPhone}
-                                    onChange={(e) => setRecipientPhone(e.target.value)}
-                                    placeholder="연락처 (010-1234-5678)"
-                                    maxLength={13}
-                                />
+                        {/* 수령인 정보 (기존 배송지 선택 시) */}
+                        {!showAddressForm && selectedAddress && (
+                            <div className="space-y-3 pt-1">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    수령인 정보
+                                </p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <Input
+                                        value={recipientName}
+                                        onChange={(e) => setRecipientName(e.target.value)}
+                                        placeholder="수령인 이름"
+                                        maxLength={20}
+                                    />
+                                    <Input
+                                        type="tel"
+                                        value={recipientPhone}
+                                        onChange={(e) => setRecipientPhone(e.target.value)}
+                                        placeholder="연락처 (010-1234-5678)"
+                                        maxLength={13}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="space-y-2 pt-1">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
