@@ -30,8 +30,7 @@ export async function updateAddress(addressId, data) {
 
 export async function deleteAddress(addressId) {
     try {
-        const response = await axiosInstance.delete(`/profile/addresses/${addressId}`);
-        return unwrapApiResponseBody(response, "배송지 삭제에 실패했습니다.");
+        await axiosInstance.delete(`/profile/addresses/${addressId}`);
     } catch (error) {
         throw normalizeApiError(error, "배송지 삭제에 실패했습니다.");
     }
@@ -39,8 +38,7 @@ export async function deleteAddress(addressId) {
 
 export async function setDefaultAddress(addressId) {
     try {
-        const response = await axiosInstance.patch(`/profile/addresses/${addressId}/default`);
-        return unwrapApiResponseBody(response, "기본 배송지 설정에 실패했습니다.");
+        await axiosInstance.patch(`/profile/addresses/${addressId}/default`);
     } catch (error) {
         throw normalizeApiError(error, "기본 배송지 설정에 실패했습니다.");
     }
