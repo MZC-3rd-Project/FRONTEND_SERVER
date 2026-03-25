@@ -14,8 +14,8 @@ import {
 
 export function useReserveCheckout() {
     return useMutation({
-        mutationFn: async ({ cartItemIds, idempotencyKey }) => {
-            const payload = await reserveCheckout(cartItemIds, idempotencyKey);
+        mutationFn: async (params) => {
+            const payload = await reserveCheckout(params);
             return mapReservationPayload(payload);
         },
     });
