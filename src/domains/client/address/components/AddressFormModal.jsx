@@ -73,7 +73,11 @@ function AddressFormModal({ open, onClose, address }) {
             return;
         }
 
-        const payload = { ...result.data, sortOrder: address?.sortOrder ?? 0 };
+        const payload = {
+            ...result.data,
+            deliveryName: result.data.recipientName,
+            sortOrder: address?.sortOrder ?? 0,
+        };
 
         try {
             if (isEditMode) {

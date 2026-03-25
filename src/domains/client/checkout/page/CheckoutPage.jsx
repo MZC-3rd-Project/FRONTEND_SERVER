@@ -271,9 +271,11 @@ function CheckoutPage() {
 
         setAddressSaveError(null);
         try {
+            const trimmedName = recipientName.trim();
             const payload = {
-                recipientName: recipientName.trim(),
+                recipientName: trimmedName,
                 recipientPhone: recipientPhone.trim(),
+                deliveryName: trimmedName,
                 zipcode: newAddress.zipcode,
                 sido: newAddress.sido,
                 sigungu: newAddress.sigungu,
