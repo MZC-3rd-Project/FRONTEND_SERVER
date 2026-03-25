@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
-import { coupons, shippingAddresses } from "@/domains/client/order/mock/orderData.js";
+import { coupons } from "@/domains/client/order/mock/orderData.js";
+import { useAddresses } from "@/domains/client/address/query/useAddressQueries";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 import {
     useReserveCheckout,
@@ -147,6 +148,9 @@ function CheckoutPage() {
         enabled: !directMode,
     });
 
+    // 배송지 조회
+    const { data: addresses = [] } = useAddresses();
+
     // 체크아웃 API mutations
     const reserveMutation = useReserveCheckout();
     const submitMutation = useSubmitCheckout();
@@ -199,8 +203,16 @@ function CheckoutPage() {
         return `/store/${directItem.storeId}/product/${directProductType}/${directProductId}${ticketQuery}`;
     }, [directItem, directProductId, directProductType, directTicketGrade, directTicketQuantity]);
 
-    // 폼 상태 — 배송지/쿠폰/결제수단/포인트 (mock 기반)
-    const [selectedAddressId, setSelectedAddressId] = useState(shippingAddresses[0]?.id ?? "");
+    // 폼 상태 — 배송지/쿠폰/결제수단/포인트
+    const [selectedAddressId, setSelectedAddressId] = useState("");
+
+    // 기본 배송지를 초기 선택값으로 설정
+    useEffect(() => {
+        if (addresses.length > 0 && !selectedAddressId) {
+            const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0];
+            setSelectedAddressId(defaultAddress.id);
+        }
+    }, [addresses, selectedAddressId]);
     const [selectedCouponId, setSelectedCouponId] = useState("");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
@@ -221,8 +233,7 @@ function CheckoutPage() {
     const finalAmount = Math.max(0, subtotal + shippingFee - couponDiscount - safeUsedPoint);
 
     const selectedAddress =
-        shippingAddresses.find((address) => address.id === selectedAddressId) ??
-        shippingAddresses[0];
+        addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
     const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting;
 
     // 체크아웃: reservations → submit → 토스 결제창
@@ -242,14 +253,10 @@ function CheckoutPage() {
             // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
             await submitMutation.mutateAsync({
                 orderId,
-                shippingAddress: {
-                    receiver: selectedAddress.receiver,
-                    phone: selectedAddress.phone,
-                    zipCode: selectedAddress.zipCode,
-                    address1: selectedAddress.address1,
-                    address2: selectedAddress.address2,
-                },
-                deliveryMessage,
+                recipientName: selectedAddress.recipientName,
+                recipientPhone: selectedAddress.recipientPhone,
+                deliveryAddressId: selectedAddress.id,
+                deliveryMemo: deliveryMessage,
             });
 
             // Step 3: 토스페이먼츠 결제창 호출
@@ -266,7 +273,7 @@ function CheckoutPage() {
                 amount: { currency: "KRW", value: finalAmount },
                 orderId,
                 orderName,
-                customerName: selectedAddress.receiver,
+                customerName: selectedAddress?.recipientName ?? "",
                 successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}`,
                 failUrl: `${window.location.origin}/order/fail?orderId=${orderId}`,
             });
@@ -394,7 +401,7 @@ function CheckoutPage() {
                     )}
                 </section>
 
-                {/* 배송지 선택 (mock) */}
+                {/* 배송지 선택 */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -403,31 +410,37 @@ function CheckoutPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {shippingAddresses.map((address) => (
-                            <button
-                                key={address.id}
-                                type="button"
-                                onClick={() => setSelectedAddressId(address.id)}
-                                className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                                    selectedAddressId === address.id
-                                        ? "border-primary bg-primary text-primary-foreground"
-                                        : "border-border bg-card text-foreground hover:border-primary"
-                                }`}
-                            >
-                                <p className="text-sm font-semibold">
-                                    {address.label}{" "}
-                                    {address.isDefault && (
-                                        <span className="ml-1 text-xs opacity-80">기본 배송지</span>
-                                    )}
-                                </p>
-                                <p className="mt-1 text-sm">
-                                    {address.receiver} · {address.phone}
-                                </p>
-                                <p className="mt-1 text-xs opacity-85">
-                                    ({address.zipCode}) {address.address1} {address.address2}
-                                </p>
-                            </button>
-                        ))}
+                        {addresses.length === 0 ? (
+                            <p className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
+                                등록된 배송지가 없습니다. 배송지 관리 페이지에서 배송지를 추가해 주세요.
+                            </p>
+                        ) : (
+                            addresses.map((address) => (
+                                <button
+                                    key={address.id}
+                                    type="button"
+                                    onClick={() => setSelectedAddressId(address.id)}
+                                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                                        selectedAddressId === address.id
+                                            ? "border-primary bg-primary text-primary-foreground"
+                                            : "border-border bg-card text-foreground hover:border-primary"
+                                    }`}
+                                >
+                                    <p className="text-sm font-semibold">
+                                        {address.deliveryName}{" "}
+                                        {address.isDefault && (
+                                            <span className="ml-1 text-xs opacity-80">기본 배송지</span>
+                                        )}
+                                    </p>
+                                    <p className="mt-1 text-sm">
+                                        {address.recipientName} · {address.recipientPhone}
+                                    </p>
+                                    <p className="mt-1 text-xs opacity-85">
+                                        ({address.zipcode}) {address.fullAddress}
+                                    </p>
+                                </button>
+                            ))
+                        )}
 
                         <div className="space-y-2 pt-1">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -617,7 +630,7 @@ function CheckoutPage() {
                             <br />
                             수령인:{" "}
                             <span className="font-semibold text-foreground">
-                                {selectedAddress.receiver}
+                                {selectedAddress?.recipientName ?? "-"}
                             </span>
                         </div>
 
@@ -662,7 +675,7 @@ function CheckoutPage() {
                         </p>
                         <p className="mt-1">
                             체크아웃 API + 토스페이먼츠 테스트 모드가 연동되어 있습니다.
-                            배송지/쿠폰은 백엔드 서비스 구현 후 교체 예정입니다.
+                            배송지는 profile-service와 연동됩니다.
                         </p>
                     </CardContent>
                 </Card>

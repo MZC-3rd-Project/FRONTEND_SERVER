@@ -3,8 +3,8 @@ import { Bell, MapPin, MessageCircleMore, Package, ReceiptText, TicketPercent, W
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { orderHistory } from "@/domains/client/order/mock/orderData.js";
 import { coupons, wishlistItems } from "@/domains/client/order/mock/orderData.js";
+import { useOrdersQuery } from "@/domains/client/order/query/useOrderQueries";
 
 const quickMenus = [
     { name: "주문내역", to: "/my/orders", icon: ReceiptText, desc: "주문/배송/취소 상태" },
@@ -16,7 +16,10 @@ const quickMenus = [
 ];
 
 function MyPage() {
-    const shippingCount = orderHistory.filter((order) => order.status === "배송중").length;
+    const { data: orderData, isLoading: isOrdersLoading, isError: isOrdersError } = useOrdersQuery();
+    const orders = orderData?.orders ?? [];
+    const orderCount = orderData?.totalCount ?? orders.length;
+    const shippingCount = orders.filter((order) => order.status === "SHIPPING").length;
 
     return (
         <div className="space-y-6">
@@ -30,13 +33,17 @@ function MyPage() {
                 <Card>
                     <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">최근 30일 주문</p>
-                        <p className="text-2xl font-bold text-foreground">{orderHistory.length}건</p>
+                        <p className="text-2xl font-bold text-foreground">
+                            {isOrdersLoading ? "…" : isOrdersError ? "-" : `${orderCount}건`}
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground">배송중</p>
-                        <p className="text-2xl font-bold text-foreground">{shippingCount}건</p>
+                        <p className="text-2xl font-bold text-foreground">
+                            {isOrdersLoading ? "…" : isOrdersError ? "-" : `${shippingCount}건`}
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>

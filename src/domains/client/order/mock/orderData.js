@@ -37,29 +37,6 @@ export const cartItems = [
     },
 ];
 
-export const shippingAddresses = [
-    {
-        id: "addr-main",
-        label: "집",
-        receiver: "김도윤",
-        phone: "010-1234-5678",
-        zipCode: "06134",
-        address1: "서울특별시 강남구 테헤란로 123",
-        address2: "801호",
-        isDefault: true,
-    },
-    {
-        id: "addr-office",
-        label: "회사",
-        receiver: "김도윤",
-        phone: "010-2222-8899",
-        zipCode: "04525",
-        address1: "서울특별시 중구 세종대로 110",
-        address2: "11층",
-        isDefault: false,
-    },
-];
-
 export const coupons = [
     {
         id: "coupon-welcome-12k",
