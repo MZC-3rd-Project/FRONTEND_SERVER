@@ -472,13 +472,13 @@ function CheckoutPage() {
                                     }`}
                                 >
                                     <p className="text-sm font-semibold">
-                                        {address.deliveryName}{" "}
+                                        {address.recipientName}{" "}
                                         {address.isDefault && (
                                             <span className="ml-1 text-xs opacity-80">기본 배송지</span>
                                         )}
                                     </p>
                                     <p className="mt-1 text-sm">
-                                        {address.recipientName} · {address.recipientPhone}
+                                        {address.recipientPhone}
                                     </p>
                                     <p className="mt-1 text-xs opacity-85">
                                         ({address.zipcode}) {address.fullAddress}
