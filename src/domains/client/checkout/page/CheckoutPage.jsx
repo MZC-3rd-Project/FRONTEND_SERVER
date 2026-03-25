@@ -229,8 +229,12 @@ function CheckoutPage() {
         if (addresses.length > 0 && !selectedAddressId) {
             const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0];
             setSelectedAddressId(defaultAddress.id);
+            setRecipientName(defaultAddress.recipientName ?? "");
+            setRecipientPhone(defaultAddress.recipientPhone ?? "");
         }
     }, [addresses, selectedAddressId]);
+    const [recipientName, setRecipientName] = useState("");
+    const [recipientPhone, setRecipientPhone] = useState("");
     const [selectedCouponId, setSelectedCouponId] = useState("");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
@@ -265,7 +269,7 @@ function CheckoutPage() {
 
     const selectedAddress =
         addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
-    const hasRecipientInfo = Boolean(selectedAddress?.recipientName && selectedAddress?.recipientPhone);
+    const hasRecipientInfo = Boolean(recipientName.trim() && recipientPhone.trim());
     const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo;
 
     // 체크아웃: reservations → submit → 토스 결제창
@@ -296,8 +300,8 @@ function CheckoutPage() {
             // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
             await submitMutation.mutateAsync({
                 orderId,
-                recipientName: selectedAddress.recipientName,
-                recipientPhone: selectedAddress.recipientPhone,
+                recipientName: recipientName.trim(),
+                recipientPhone: recipientPhone.trim(),
                 deliveryAddressId: selectedAddress.id,
                 deliveryMemo: deliveryMessage,
             });
@@ -465,7 +469,11 @@ function CheckoutPage() {
                                 <button
                                     key={address.id}
                                     type="button"
-                                    onClick={() => setSelectedAddressId(address.id)}
+                                    onClick={() => {
+                                        setSelectedAddressId(address.id);
+                                        setRecipientName(address.recipientName ?? "");
+                                        setRecipientPhone(address.recipientPhone ?? "");
+                                    }}
                                     className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                                         selectedAddressId === address.id
                                             ? "border-primary bg-primary text-primary-foreground"
@@ -488,18 +496,26 @@ function CheckoutPage() {
                             ))
                         )}
 
-                        {selectedAddress && !hasRecipientInfo && (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    선택한 배송지에 수령인 이름 또는 연락처가 없습니다.{" "}
-                                    <Link to="/my/addresses" className="underline font-semibold">
-                                        배송지 관리
-                                    </Link>
-                                    에서 수령인 정보를 입력해 주세요.
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        <div className="space-y-3 pt-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                수령인 정보
+                            </p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Input
+                                    value={recipientName}
+                                    onChange={(e) => setRecipientName(e.target.value)}
+                                    placeholder="수령인 이름"
+                                    maxLength={20}
+                                />
+                                <Input
+                                    type="tel"
+                                    value={recipientPhone}
+                                    onChange={(e) => setRecipientPhone(e.target.value)}
+                                    placeholder="연락처 (010-1234-5678)"
+                                    maxLength={13}
+                                />
+                            </div>
+                        </div>
 
                         <div className="space-y-2 pt-1">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
