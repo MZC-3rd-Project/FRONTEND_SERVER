@@ -272,6 +272,7 @@ function CheckoutPage() {
     }, [addresses, selectedAddressId]);
     const [recipientName, setRecipientName] = useState("");
     const [recipientPhone, setRecipientPhone] = useState("");
+    const [deliveryName, setDeliveryName] = useState("");
 
     // 배송지 추가 폼 상태
     const [showAddressForm, setShowAddressForm] = useState(false);
@@ -300,6 +301,7 @@ function CheckoutPage() {
         setAddressSaveError(null);
         try {
             const payload = {
+                deliveryName: deliveryName.trim() || recipientName.trim(),
                 recipientName: recipientName.trim(),
                 recipientPhone: recipientPhone.trim(),
                 zipcode: newAddress.zipcode,
@@ -663,6 +665,7 @@ function CheckoutPage() {
                                 onClick={() => {
                                     setShowAddressForm(true);
                                     setSelectedAddressId("");
+                                    setDeliveryName("");
                                     setRecipientName("");
                                     setRecipientPhone("");
                                     setNewAddress({ zipcode: "", fullAddress: "", detailAddress: "" });
@@ -674,6 +677,13 @@ function CheckoutPage() {
                         ) : (
                             <div className="rounded-2xl border border-primary p-4 space-y-3">
                                 <p className="text-sm font-semibold">새 배송지 추가</p>
+
+                                <Input
+                                    value={deliveryName}
+                                    onChange={(e) => setDeliveryName(e.target.value)}
+                                    placeholder="배송지 이름 (집, 회사 등)"
+                                    maxLength={20}
+                                />
 
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <Input

@@ -8,7 +8,7 @@ import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode
 /**
  * AddressForm (Molecule)
  *
- * values: { recipientName, recipientPhone, zipcode, sido, sigungu, roadName, buildingNumber, buildingName, detailAddress }
+ * values: { deliveryName, recipientName, recipientPhone, zipcode, sido, sigungu, roadName, buildingNumber, buildingName, detailAddress }
  * errors: fieldErrors from Zod
  * onChange: (field, value) => void
  * onAddressSelect: (kakaoResult) => void  — 주소 검색 완료 시 여러 필드를 한번에 채움
@@ -24,6 +24,23 @@ function AddressForm({ values, errors = {}, onChange, onAddressSelect }) {
 
     return (
         <div className="space-y-4">
+            <FormField
+                id="deliveryName"
+                label="배송지 이름"
+                required
+                hint={errors.deliveryName?.[0]}
+                hintError={Boolean(errors.deliveryName)}
+            >
+                <Input
+                    id="deliveryName"
+                    value={values.deliveryName}
+                    onChange={(e) => onChange("deliveryName", e.target.value)}
+                    placeholder="집, 회사 등"
+                    maxLength={20}
+                    className="h-11 rounded-xl"
+                />
+            </FormField>
+
             <FormField
                 id="recipientName"
                 label="수령인"
