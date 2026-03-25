@@ -160,6 +160,7 @@ function CheckoutPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
     const orderIdRef = useRef(null);
+    const idempotencyKeyRef = useRef(null);
 
     const directItem = useMemo(
         () =>
@@ -246,7 +247,13 @@ function CheckoutPage() {
         try {
             // Step 1: 재고 예약
             const cartItemIds = checkoutItems.map((item) => item.id);
-            const reservation = await reserveMutation.mutateAsync(cartItemIds);
+            if (!idempotencyKeyRef.current) {
+                idempotencyKeyRef.current = crypto.randomUUID();
+            }
+            const reservation = await reserveMutation.mutateAsync({
+                cartItemIds,
+                idempotencyKey: idempotencyKeyRef.current,
+            });
             const orderId = reservation?.orderId ?? `DM${Date.now()}`;
             orderIdRef.current = orderId;
 
@@ -280,6 +287,7 @@ function CheckoutPage() {
 
             // 토스가 successUrl로 리다이렉트하므로 여기까지 오지 않음
             orderIdRef.current = null;
+            idempotencyKeyRef.current = null;
         } catch (error) {
             // 토스 결제창에서 사용자가 닫기/취소한 경우
             if (error?.code === "USER_CANCEL" || error?.message?.includes("취소")) {
@@ -294,6 +302,7 @@ function CheckoutPage() {
                 cancelMutation.mutate(orderIdRef.current);
                 orderIdRef.current = null;
             }
+            idempotencyKeyRef.current = null;
         }
     };
 

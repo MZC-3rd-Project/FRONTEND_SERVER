@@ -1,10 +1,11 @@
 import { axiosInstance } from "@/common/api/apiInstacne";
 import { normalizeApiError, unwrapApiResponseBody } from "@/common/api/responseUtils";
 
-export async function reserveCheckout(cartItemIds = []) {
+export async function reserveCheckout(cartItemIds = [], idempotencyKey) {
     try {
         const response = await axiosInstance.post("/v1/cart/checkout/reservations", {
             cartItemIds,
+            idempotencyKey,
         });
         return unwrapApiResponseBody(response, "체크아웃 예약에 실패했습니다.");
     } catch (error) {
