@@ -9,10 +9,11 @@ import { useCreateAddress, useUpdateAddress } from "@/domains/client/address/hoo
 function getInitialValues(address) {
     if (!address) return { ...EMPTY_ADDRESS_FORM, fullAddress: "" };
     // GET /api/profile/addresses 응답(AddressResponse)은 granular 필드를 포함하지 않으므로
-    // 주소는 카카오 재검색으로 채우고, deliveryName만 유지합니다.
+    // 주소는 카카오 재검색으로 채우고, 수령인 정보만 유지합니다.
     return {
         ...EMPTY_ADDRESS_FORM,
-        deliveryName: address.deliveryName ?? "",
+        recipientName: address.recipientName ?? "",
+        recipientPhone: address.recipientPhone ?? "",
         fullAddress: address.fullAddress ?? "",
     };
 }

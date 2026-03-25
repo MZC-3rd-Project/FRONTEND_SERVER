@@ -8,7 +8,7 @@ import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode
 /**
  * AddressForm (Molecule)
  *
- * values: { deliveryName, zipcode, sido, sigungu, roadName, buildingNumber, buildingName, detailAddress }
+ * values: { recipientName, recipientPhone, zipcode, sido, sigungu, roadName, buildingNumber, buildingName, detailAddress }
  * errors: fieldErrors from Zod
  * onChange: (field, value) => void
  * onAddressSelect: (kakaoResult) => void  — 주소 검색 완료 시 여러 필드를 한번에 채움
@@ -25,18 +25,36 @@ function AddressForm({ values, errors = {}, onChange, onAddressSelect }) {
     return (
         <div className="space-y-4">
             <FormField
-                id="deliveryName"
+                id="recipientName"
                 label="수령인"
                 required
-                hint={errors.deliveryName?.[0]}
-                hintError={Boolean(errors.deliveryName)}
+                hint={errors.recipientName?.[0]}
+                hintError={Boolean(errors.recipientName)}
             >
                 <Input
-                    id="deliveryName"
-                    value={values.deliveryName}
-                    onChange={(e) => onChange("deliveryName", e.target.value)}
+                    id="recipientName"
+                    value={values.recipientName}
+                    onChange={(e) => onChange("recipientName", e.target.value)}
                     placeholder="홍길동"
                     maxLength={20}
+                    className="h-11 rounded-xl"
+                />
+            </FormField>
+
+            <FormField
+                id="recipientPhone"
+                label="연락처"
+                required
+                hint={errors.recipientPhone?.[0]}
+                hintError={Boolean(errors.recipientPhone)}
+            >
+                <Input
+                    id="recipientPhone"
+                    type="tel"
+                    value={values.recipientPhone}
+                    onChange={(e) => onChange("recipientPhone", e.target.value)}
+                    placeholder="010-1234-5678"
+                    maxLength={13}
                     className="h-11 rounded-xl"
                 />
             </FormField>
