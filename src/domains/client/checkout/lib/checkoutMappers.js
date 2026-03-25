@@ -52,7 +52,9 @@ export function mapReservationPayload(raw) {
         orderId: toText(raw.orderId),
         reservedAt: toText(raw.reservedAt ?? raw.createdAt),
         expiresAt: toText(raw.expiresAt),
-        items: Array.isArray(raw.items) ? raw.items.map(mapCheckoutItem) : [],
+        items: Array.isArray(raw.items ?? raw.reservedItems)
+            ? (raw.items ?? raw.reservedItems).map(mapCheckoutItem)
+            : [],
     };
 }
 

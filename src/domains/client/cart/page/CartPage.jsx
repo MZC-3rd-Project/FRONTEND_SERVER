@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { AlertCircle, Minus, Plus, RefreshCw, ShoppingBag, ShoppingCart, Trash2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
@@ -12,6 +12,12 @@ import {
     useRemoveCartItemMutation,
     useUpdateCartItemQuantityMutation,
 } from "@/domains/client/cart/query/useCartQueries";
+import { useReserveCheckout } from "@/domains/client/checkout/query/useCheckoutQueries";
+import {
+    buildCartCheckoutReservationPayload,
+    createCartCheckoutReservationState,
+    persistCartCheckoutReservation,
+} from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 function CartPageSkeleton() {
     return (
@@ -61,10 +67,12 @@ function EmptyCart() {
 }
 
 function CartPage() {
+    const navigate = useNavigate();
     const { data: cart, isLoading, isError, error, refetch, isFetching } = useCartQuery();
     const changeSelectionMutation = useChangeCartSelectionMutation();
     const updateQuantityMutation = useUpdateCartItemQuantityMutation();
     const removeCartItemMutation = useRemoveCartItemMutation();
+    const reserveCheckoutMutation = useReserveCheckout();
     const [actionFeedback, setActionFeedback] = useState(null);
 
     if (isLoading) {
@@ -117,7 +125,8 @@ function CartPage() {
     const isActionPending =
         changeSelectionMutation.isPending ||
         updateQuantityMutation.isPending ||
-        removeCartItemMutation.isPending;
+        removeCartItemMutation.isPending ||
+        reserveCheckoutMutation.isPending;
 
     const handleToggleSelection = async (item, selected) => {
         setActionFeedback(null);
@@ -177,6 +186,32 @@ function CartPage() {
             setActionFeedback({
                 type: "error",
                 message: mutationError?.message ?? "상품을 삭제하지 못했습니다.",
+            });
+        }
+    };
+
+    const handleStartCheckout = async () => {
+        if (resolvedCart.selectedItems.length === 0) {
+            return;
+        }
+
+        setActionFeedback(null);
+
+        try {
+            const payload = buildCartCheckoutReservationPayload(resolvedCart.selectedItems);
+            const reservation = await reserveCheckoutMutation.mutateAsync(payload);
+            const reservationState = createCartCheckoutReservationState({
+                reservation,
+                selectedItems: resolvedCart.selectedItems,
+                idempotencyKey: payload.idempotencyKey,
+            });
+
+            persistCartCheckoutReservation(reservationState);
+            navigate("/checkout", { state: { cartReservation: reservationState } });
+        } catch (reservationError) {
+            setActionFeedback({
+                type: "error",
+                message: reservationError?.message ?? "체크아웃 예약에 실패했습니다.",
             });
         }
     };
@@ -297,11 +332,14 @@ function CartPage() {
                                 <Link to="/sales">쇼핑 계속하기</Link>
                             </Button>
                             {resolvedCart.selectedItemCount > 0 ? (
-                                <Button asChild className="rounded-full px-5">
-                                    <Link to="/checkout">
-                                        <ShoppingBag className="h-4 w-4" />
-                                        선택 상품 결제하기
-                                    </Link>
+                                <Button
+                                    type="button"
+                                    className="rounded-full px-5"
+                                    onClick={handleStartCheckout}
+                                    disabled={isActionPending}
+                                >
+                                    <ShoppingBag className="h-4 w-4" />
+                                    {reserveCheckoutMutation.isPending ? "예약 중..." : "선택 상품 결제하기"}
                                 </Button>
                             ) : (
                                 <Button disabled className="rounded-full px-5">

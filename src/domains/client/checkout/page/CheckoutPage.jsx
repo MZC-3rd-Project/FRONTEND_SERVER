@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import {
     AlertCircle,
     CreditCard,
@@ -31,6 +31,13 @@ import {
     isStockInsufficient,
     isReservationExpired,
 } from "@/domains/client/checkout/lib/checkoutErrors";
+import {
+    buildCartCheckoutReservationPayload,
+    clearCartCheckoutReservation,
+    createCartCheckoutReservationState,
+    persistCartCheckoutReservation,
+    readCartCheckoutReservation,
+} from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
 
@@ -123,6 +130,7 @@ function CheckoutPageSkeleton() {
 }
 
 function CheckoutPage() {
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const directMode = searchParams.get("mode") === "direct";
     const directStoreId = searchParams.get("storeId") ?? "";
@@ -160,6 +168,12 @@ function CheckoutPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
     const orderIdRef = useRef(null);
+    const [cartReservation, setCartReservation] = useState(() => {
+        if (directMode) {
+            return null;
+        }
+        return location.state?.cartReservation ?? readCartCheckoutReservation();
+    });
 
     const directItem = useMemo(
         () =>
@@ -185,9 +199,13 @@ function CheckoutPage() {
         () => (directMode ? [] : (cart?.selectedItems ?? []).map(mapCartItemToCheckoutItem)),
         [cart?.selectedItems, directMode],
     );
+    const reservedCheckoutItems = useMemo(
+        () => (directMode ? [] : (cartReservation?.checkoutItems ?? [])),
+        [cartReservation, directMode],
+    );
     const checkoutItems = useMemo(
-        () => (directMode ? (directItem ? [directItem] : []) : cartCheckoutItems),
-        [cartCheckoutItems, directItem, directMode],
+        () => (directMode ? (directItem ? [directItem] : []) : (reservedCheckoutItems.length > 0 ? reservedCheckoutItems : cartCheckoutItems)),
+        [cartCheckoutItems, directItem, directMode, reservedCheckoutItems],
     );
     const directBackLink = useMemo(() => {
         if (!directItem) return "/cart";
@@ -217,6 +235,19 @@ function CheckoutPage() {
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
     const [usedPoint, setUsedPoint] = useState(3000);
 
+    useEffect(() => {
+        if (directMode) {
+            clearCartCheckoutReservation();
+            setCartReservation(null);
+            orderIdRef.current = null;
+            return;
+        }
+
+        const nextReservation = location.state?.cartReservation ?? readCartCheckoutReservation();
+        setCartReservation(nextReservation ?? null);
+        orderIdRef.current = nextReservation?.orderId ?? null;
+    }, [directMode, location.state]);
+
     // 금액 계산
     const subtotal = useMemo(
         () => checkoutItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
@@ -244,10 +275,21 @@ function CheckoutPage() {
         setSubmitError(null);
 
         try {
-            // Step 1: 재고 예약
-            const cartItemIds = checkoutItems.map((item) => item.id);
-            const reservation = await reserveMutation.mutateAsync(cartItemIds);
-            const orderId = reservation?.orderId ?? `DM${Date.now()}`;
+            let orderId = cartReservation?.orderId ?? null;
+
+            if (!orderId) {
+                const payload = buildCartCheckoutReservationPayload(cart?.selectedItems ?? []);
+                const reservation = await reserveMutation.mutateAsync(payload);
+                const reservationState = createCartCheckoutReservationState({
+                    reservation,
+                    selectedItems: cart?.selectedItems ?? [],
+                    idempotencyKey: payload.idempotencyKey,
+                });
+                persistCartCheckoutReservation(reservationState);
+                setCartReservation(reservationState);
+                orderId = reservationState.orderId || `DM${Date.now()}`;
+            }
+
             orderIdRef.current = orderId;
 
             // Step 2: 주문 확정 (배송정보 제출) → PENDING_PAYMENT 상태
@@ -279,6 +321,7 @@ function CheckoutPage() {
             });
 
             // 토스가 successUrl로 리다이렉트하므로 여기까지 오지 않음
+            clearCartCheckoutReservation();
             orderIdRef.current = null;
         } catch (error) {
             // 토스 결제창에서 사용자가 닫기/취소한 경우
@@ -292,6 +335,7 @@ function CheckoutPage() {
             // 예약/주문이 생성된 상태에서 실패 시 취소
             if (orderIdRef.current) {
                 cancelMutation.mutate(orderIdRef.current);
+                clearCartCheckoutReservation();
                 orderIdRef.current = null;
             }
         }
@@ -311,6 +355,7 @@ function CheckoutPage() {
             // 언마운트 시 예약이 남아있으면 취소
             if (orderIdRef.current) {
                 cancelMutation.mutate(orderIdRef.current);
+                clearCartCheckoutReservation();
                 orderIdRef.current = null;
             }
         };
