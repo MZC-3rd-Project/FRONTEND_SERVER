@@ -265,11 +265,12 @@ function CheckoutPage() {
 
     const selectedAddress =
         addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
-    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting;
+    const hasRecipientInfo = Boolean(selectedAddress?.recipientName && selectedAddress?.recipientPhone);
+    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo;
 
     // 체크아웃: reservations → submit → 토스 결제창
     const handleSubmitCheckout = async () => {
-        if (!isCheckoutReady) return;
+        if (!isCheckoutReady || !selectedAddress) return;
 
         setIsSubmitting(true);
         setSubmitError(null);
@@ -485,6 +486,19 @@ function CheckoutPage() {
                                     </p>
                                 </button>
                             ))
+                        )}
+
+                        {selectedAddress && !hasRecipientInfo && (
+                            <Alert variant="destructive">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertDescription>
+                                    선택한 배송지에 수령인 이름 또는 연락처가 없습니다.{" "}
+                                    <Link to="/my/addresses" className="underline font-semibold">
+                                        배송지 관리
+                                    </Link>
+                                    에서 수령인 정보를 입력해 주세요.
+                                </AlertDescription>
+                            </Alert>
                         )}
 
                         <div className="space-y-2 pt-1">
