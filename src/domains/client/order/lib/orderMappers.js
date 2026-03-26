@@ -34,13 +34,13 @@ export function canRefundOrder(status) {
 function mapOrderItem(raw) {
     return {
         id: toText(raw.id ?? raw.itemId ?? raw.orderItemId),
-        name: toText(raw.name ?? raw.productName ?? raw.itemName),
-        option: toText(raw.option ?? raw.optionName),
+        name: toText(raw.name ?? raw.productName ?? raw.itemName ?? raw.titleSnap ?? raw.title),
+        option: toText(raw.option ?? raw.optionName ?? raw.itemTypeSnap),
         thumbnail: toText(raw.thumbnail ?? raw.thumbnailUrl ?? raw.imageUrl),
-        storeName: toText(raw.storeName),
+        storeName: toText(raw.storeName ?? raw.storeNameSnap),
         storeId: toText(raw.storeId),
         quantity: toNumber(raw.quantity, 1),
-        unitPrice: toNumber(raw.unitPrice ?? raw.price),
+        unitPrice: toNumber(raw.unitPrice ?? raw.price ?? raw.priceSnap),
     };
 }
 
@@ -107,7 +107,7 @@ export function mapOrderDetailPayload(raw) {
         orderedAt: toText(raw.orderedAt ?? raw.createdAt ?? raw.orderDate),
         paymentMethod: toText(raw.paymentMethod, "토스페이먼츠"),
         items: Array.isArray(raw.items ?? raw.orderItems) ? (raw.items ?? raw.orderItems).map(mapOrderItem) : [],
-        shipping: mapShipping(raw.shipping ?? raw.shippingInfo ?? raw.deliveryInfo),
+        shipping: mapShipping(raw.shipping ?? raw.shipment ?? raw.shippingInfo ?? raw.deliveryInfo),
         subtotal,
         subtotalText: formatPrice(subtotal),
         discountAmount,

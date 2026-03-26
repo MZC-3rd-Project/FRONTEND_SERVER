@@ -9,7 +9,6 @@ import {
     RefreshCw,
     Search,
     ShieldCheck,
-    TicketPercent,
 } from "lucide-react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
@@ -21,7 +20,6 @@ import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { useCancelOrderMutation } from "@/domains/client/order/query/useOrderQueries";
-import { coupons } from "@/domains/client/order/mock/orderData.js";
 import { useAddresses } from "@/domains/client/address/query/useAddressQueries";
 import { useCreateAddress, useSetDefaultAddress } from "@/domains/client/address/hook/useAddressQuery";
 import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode";
@@ -52,26 +50,6 @@ import {
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
 const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
-
-function calculateCouponDiscount(selectedCoupon, subtotal, shippingFee) {
-    if (!selectedCoupon) return 0;
-    if (subtotal < selectedCoupon.minimumAmount) return 0;
-
-    if (selectedCoupon.discountType === "amount") {
-        return selectedCoupon.amount;
-    }
-
-    if (selectedCoupon.discountType === "shipping") {
-        return Math.min(selectedCoupon.amount, shippingFee);
-    }
-
-    if (selectedCoupon.discountType === "percent") {
-        const discount = Math.floor((subtotal * selectedCoupon.amount) / 100);
-        return Math.min(discount, selectedCoupon.maximumDiscount ?? discount);
-    }
-
-    return 0;
-}
 
 function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, ticketQuantity) {
     const result = findStoreProduct(storeId, productType, productId);
@@ -333,9 +311,8 @@ function CheckoutPage() {
         }
     };
 
-    const [selectedCouponId, setSelectedCouponId] = useState("");
     const [deliveryMessage, setDeliveryMessage] = useState("문 앞에 두고 벨 눌러주세요.");
-    const [usedPoint, setUsedPoint] = useState(3000);
+    const [orderAgreed, setOrderAgreed] = useState(false);
 
     useEffect(() => {
         if (directMode) {
@@ -370,19 +347,12 @@ function CheckoutPage() {
         [checkoutItems],
     );
     const shippingFee = subtotal >= 70000 ? 0 : 3500;
-    const selectedCoupon = coupons.find((coupon) => coupon.id === selectedCouponId);
-    const couponDiscount = calculateCouponDiscount(selectedCoupon, subtotal, shippingFee);
-    const maxUsablePoint = Math.min(12000, subtotal - couponDiscount);
-    const safeUsedPoint = Math.min(
-        Math.max(0, Number(usedPoint) || 0),
-        Math.max(0, maxUsablePoint),
-    );
-    const finalAmount = Math.max(0, subtotal + shippingFee - couponDiscount - safeUsedPoint);
+    const finalAmount = Math.max(0, subtotal + shippingFee);
 
     const selectedAddress =
         addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
     const hasRecipientInfo = Boolean(recipientName.trim() && recipientPhone.trim());
-    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo && !showAddressForm && Boolean(selectedAddress);
+    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo && !showAddressForm && Boolean(selectedAddress) && orderAgreed;
 
     // 체크아웃: reservations → submit → 토스 결제창
     const handleSubmitCheckout = async () => {
@@ -896,66 +866,6 @@ function CheckoutPage() {
                     </CardContent>
                 </Card>
 
-                {/* 쿠폰 / 포인트 (mock) */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <TicketPercent className="h-4 w-4 text-primary" />
-                            쿠폰 / 포인트
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                쿠폰 선택
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedCouponId("")}
-                                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                                        selectedCouponId === ""
-                                            ? "border-primary bg-primary text-primary-foreground"
-                                            : "border-border bg-card text-foreground hover:border-primary"
-                                    }`}
-                                >
-                                    사용 안 함
-                                </button>
-                                {coupons.map((coupon) => (
-                                    <button
-                                        key={coupon.id}
-                                        type="button"
-                                        onClick={() => setSelectedCouponId(coupon.id)}
-                                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                                            selectedCouponId === coupon.id
-                                                ? "border-primary bg-primary text-primary-foreground"
-                                                : "border-border bg-card text-foreground hover:border-primary"
-                                        }`}
-                                    >
-                                        {coupon.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                포인트 사용
-                            </p>
-                            <Input
-                                type="number"
-                                min={0}
-                                max={maxUsablePoint}
-                                value={safeUsedPoint}
-                                onChange={(event) => setUsedPoint(event.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                최대 사용 가능 포인트: {maxUsablePoint.toLocaleString()}P
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-
                 {/* 최종 결제 금액 */}
                 <Card>
                     <CardHeader className="pb-2">
@@ -968,19 +878,7 @@ function CheckoutPage() {
                         </div>
                         <div className="flex items-center justify-between text-muted-foreground">
                             <span>배송비</span>
-                            <span>{formatPrice(shippingFee)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-muted-foreground">
-                            <span>쿠폰 할인</span>
-                            <span className="text-primary">
-                                - {formatPrice(couponDiscount)}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between text-muted-foreground">
-                            <span>포인트 사용</span>
-                            <span className="text-primary">
-                                - {formatPrice(safeUsedPoint)}
-                            </span>
+                            <span>{shippingFee === 0 ? "무료" : formatPrice(shippingFee)}</span>
                         </div>
                         <div className="my-2 h-px bg-border" />
                         <div className="flex items-center justify-between text-base font-bold text-foreground">
@@ -989,16 +887,27 @@ function CheckoutPage() {
                         </div>
 
                         <div className="rounded-2xl border border-border bg-muted p-3 text-xs text-muted-foreground">
-                            결제수단:{" "}
-                            <span className="font-semibold text-foreground">
-                                토스페이먼츠
-                            </span>
-                            <br />
                             수령인:{" "}
                             <span className="font-semibold text-foreground">
                                 {selectedAddress?.recipientName ?? "-"}
                             </span>
                         </div>
+
+                        <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border p-3">
+                            <input
+                                type="checkbox"
+                                checked={orderAgreed}
+                                onChange={(e) => setOrderAgreed(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                                주문 내용을 확인하였으며,{" "}
+                                <span className="font-semibold text-foreground">
+                                    최종 주문에 동의합니다.
+                                </span>{" "}
+                                (필수)
+                            </span>
+                        </label>
 
                         {/* 체크아웃 에러 표시 */}
                         {submitError && (

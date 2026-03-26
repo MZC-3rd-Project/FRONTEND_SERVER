@@ -83,33 +83,47 @@ function OrderDetailPage() {
                             <CardTitle className="text-base">주문 상품</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {order.items.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="flex gap-3 rounded-xl border border-border bg-muted p-3"
-                                >
-                                    <img
-                                        src={item.thumbnail}
-                                        alt={item.name}
-                                        className="h-16 w-16 rounded-lg object-cover"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-xs text-muted-foreground">{item.storeName}</p>
-                                        <p className="line-clamp-1 text-sm font-semibold text-foreground">
-                                            {item.name}
-                                        </p>
-                                        <p className="line-clamp-1 text-xs text-muted-foreground">
-                                            {item.option}
-                                        </p>
+                            {order.items.length > 0 ? (
+                                order.items.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="flex gap-3 rounded-xl border border-border bg-muted p-3"
+                                    >
+                                        {item.thumbnail ? (
+                                            <img
+                                                src={item.thumbnail}
+                                                alt={item.name}
+                                                className="h-16 w-16 rounded-lg object-cover"
+                                            />
+                                        ) : (
+                                            <div className="grid h-16 w-16 place-items-center rounded-lg bg-card text-xs text-muted-foreground">
+                                                이미지 없음
+                                            </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs text-muted-foreground">{item.storeName || ""}</p>
+                                            <p className="line-clamp-1 text-sm font-semibold text-foreground">
+                                                {item.name || `상품 #${item.id}`}
+                                            </p>
+                                            {item.option && (
+                                                <p className="line-clamp-1 text-xs text-muted-foreground">
+                                                    {item.option}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-muted-foreground">x {item.quantity}</p>
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {formatPrice(item.unitPrice * item.quantity)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-muted-foreground">x {item.quantity}</p>
-                                        <p className="text-sm font-semibold text-foreground">
-                                            {formatPrice(item.unitPrice * item.quantity)}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p className="rounded-xl border border-border bg-muted p-3 text-xs text-muted-foreground">
+                                    주문 상품 정보를 불러올 수 없습니다.
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
 

@@ -142,10 +142,10 @@ function OrderCompletePage() {
                                             )}
                                             <div className="min-w-0 flex-1">
                                                 <p className="line-clamp-1 text-sm font-semibold text-foreground">
-                                                    {item.name}
+                                                    {item.name || `상품 #${item.id}`}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {item.option} · x{item.quantity}
+                                                    {item.option ? `${item.option} · ` : ""}x{item.quantity}
                                                 </p>
                                             </div>
                                             <p className="text-sm font-semibold text-foreground">
