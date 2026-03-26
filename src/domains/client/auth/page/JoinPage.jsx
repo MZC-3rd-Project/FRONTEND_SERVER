@@ -193,6 +193,21 @@ function JoinPage() {
                 setFieldErrors((prev) => ({ ...prev, email: "이미 사용 중인 이메일입니다." }));
             } else {
                 setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                // 중복확인 통과 시 인증번호 자동 발송
+                setEmailVerif((prev) => ({ ...prev, isSending: true, error: null }));
+                try {
+                    await axiosInstance.post("/v1/auth/emails/verification", {
+                        email: formData.email,
+                    });
+                    setEmailVerif((prev) => ({ ...prev, isSending: false, sent: true, code: "", error: null }));
+                    startCountdown();
+                } catch {
+                    setEmailVerif((prev) => ({
+                        ...prev,
+                        isSending: false,
+                        error: "인증번호 발송에 실패했습니다. 다시 시도해 주세요.",
+                    }));
+                }
             }
         } catch {
             setEmailCheck({ status: IDLE, checkedValue: "" });
@@ -468,10 +483,57 @@ function JoinPage() {
                             </div>
                             <FieldError message={fieldErrors.email} id="email-error" />
 
-                            {/* 인증번호 발송 영역: 이메일 중복확인 통과 후 표시 */}
+                            {/* 인증번호 입력 영역: 중복확인 통과 후 자동 발송되어 바로 표시 */}
                             {emailCheck.status === AVAILABLE && !emailVerif.verified && (
                                 <div className="mt-2 space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-                                    {!emailVerif.sent ? (
+                                    {emailVerif.isSending ? (
+                                        <p className="text-center text-xs text-zinc-500">인증번호를 발송하고 있습니다...</p>
+                                    ) : emailVerif.sent ? (
+                                        <>
+                                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                                인증번호가 발송되었습니다.{" "}
+                                                {countdown > 0 && (
+                                                    <span className="font-semibold text-primary">
+                                                        {formatCountdown(countdown)}
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    type="text"
+                                                    placeholder="인증번호 6자리"
+                                                    value={emailVerif.code}
+                                                    onChange={(e) =>
+                                                        setEmailVerif((prev) => ({ ...prev, code: e.target.value, error: null }))
+                                                    }
+                                                    maxLength={6}
+                                                    className="h-8 flex-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                                                    disabled={isSubmitting}
+                                                    autoFocus
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleVerifyCode}
+                                                    disabled={emailVerif.isVerifying || isSubmitting}
+                                                    className="shrink-0 text-xs"
+                                                >
+                                                    {emailVerif.isVerifying ? "확인 중..." : "확인"}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={handleSendVerification}
+                                                    disabled={emailVerif.isSending || isSubmitting || countdown > 0}
+                                                    className="shrink-0 text-xs text-zinc-400"
+                                                >
+                                                    재발송
+                                                </Button>
+                                            </div>
+                                        </>
+                                    ) : emailVerif.error ? (
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -480,45 +542,9 @@ function JoinPage() {
                                             disabled={emailVerif.isSending || isSubmitting}
                                             className="w-full text-xs"
                                         >
-                                            {emailVerif.isSending ? "발송 중..." : "인증번호 발송"}
+                                            인증번호 다시 발송
                                         </Button>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <Input
-                                                type="text"
-                                                placeholder="인증번호 6자리"
-                                                value={emailVerif.code}
-                                                onChange={(e) =>
-                                                    setEmailVerif((prev) => ({ ...prev, code: e.target.value, error: null }))
-                                                }
-                                                maxLength={6}
-                                                className="h-8 flex-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                                                disabled={isSubmitting}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleVerifyCode}
-                                                disabled={emailVerif.isVerifying || isSubmitting}
-                                                className="shrink-0 text-xs"
-                                            >
-                                                {emailVerif.isVerifying ? "확인 중..." : "확인"}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={handleSendVerification}
-                                                disabled={emailVerif.isSending || isSubmitting || countdown > 0}
-                                                className="shrink-0 text-xs text-zinc-400"
-                                            >
-                                                {countdown > 0
-                                                    ? formatCountdown(countdown)
-                                                    : "재발송"}
-                                            </Button>
-                                        </div>
-                                    )}
+                                    ) : null}
                                     {emailVerif.error && (
                                         <p className="text-xs text-red-500">{emailVerif.error}</p>
                                     )}
