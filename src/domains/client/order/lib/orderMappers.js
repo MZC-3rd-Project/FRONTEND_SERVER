@@ -6,7 +6,9 @@ function toNumber(value, fallback = 0) {
 }
 
 function toText(value, fallback = "") {
-    return typeof value === "string" ? value.trim() : fallback;
+    if (value == null) return fallback;
+    if (typeof value === "string") return value.trim() || fallback;
+    return String(value);
 }
 
 const ORDER_STATUS_MAP = {
