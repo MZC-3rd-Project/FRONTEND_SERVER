@@ -169,6 +169,8 @@ function CheckoutPage() {
     const orderIdRef = useRef(null);
     const orderCreatedRef = useRef(false);
     const paymentRedirectingRef = useRef(false);
+    const widgetsRef = useRef(null);
+    const [widgetsReady, setWidgetsReady] = useState(false);
     const [cartReservation, setCartReservation] = useState(() => {
         if (directMode || hotDealMode) {
             return null;
@@ -352,7 +354,49 @@ function CheckoutPage() {
     const selectedAddress =
         addresses.find((address) => address.id === selectedAddressId) ?? addresses[0];
     const hasRecipientInfo = Boolean(recipientName.trim() && recipientPhone.trim());
-    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo && !showAddressForm && Boolean(selectedAddress) && orderAgreed;
+    const isCheckoutReady = checkoutItems.length > 0 && !isSubmitting && hasRecipientInfo && !showAddressForm && Boolean(selectedAddress) && orderAgreed && widgetsReady;
+
+    // 토스페이먼츠 위젯 초기화
+    useEffect(() => {
+        if (checkoutItems.length === 0 || finalAmount <= 0) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+                const widgets = tossPayments.widgets({ customerKey: tossCustomerKey });
+                await widgets.setAmount({ currency: "KRW", value: finalAmount });
+
+                if (cancelled) return;
+                widgetsRef.current = widgets;
+
+                await widgets.renderPaymentMethods({
+                    selector: "#toss-payment-methods",
+                    variantKey: "DEFAULT",
+                });
+                await widgets.renderAgreement({
+                    selector: "#toss-agreement",
+                    variantKey: "AGREEMENT",
+                });
+
+                if (!cancelled) setWidgetsReady(true);
+            } catch (err) {
+                if (!cancelled) {
+                    console.error("토스페이먼츠 위젯 초기화 실패:", err);
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [checkoutItems.length > 0, tossCustomerKey]);
+
+    // 금액 변경 시 위젯 업데이트
+    useEffect(() => {
+        if (widgetsRef.current && finalAmount > 0) {
+            widgetsRef.current.setAmount({ currency: "KRW", value: finalAmount });
+        }
+    }, [finalAmount]);
 
     // 체크아웃: reservations → submit → 토스 결제창
     const handleSubmitCheckout = async () => {
@@ -407,22 +451,18 @@ function CheckoutPage() {
                 });
             }
 
-            // Step 3: 토스페이먼츠 결제창 호출
-            const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
-            const payment = tossPayments.payment({ customerKey: tossCustomerKey });
-
+            // Step 3: 토스페이먼츠 위젯 결제 요청
             const orderName =
                 checkoutItems.length === 1
                     ? checkoutItems[0].name
                     : `${checkoutItems[0].name} 외 ${checkoutItems.length - 1}건`;
 
             paymentRedirectingRef.current = true;
-            await payment.requestPayment({
-                method: "CARD",
-                amount: { currency: "KRW", value: finalAmount },
+            await widgetsRef.current.requestPayment({
                 orderId,
                 orderName,
                 customerName: selectedAddress?.recipientName ?? "",
+                customerEmail: user?.email ?? "",
                 successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
                 failUrl: `${window.location.origin}/order/fail?orderId=${orderId}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
             });
@@ -791,7 +831,7 @@ function CheckoutPage() {
                     </CardContent>
                 </Card>
 
-                {/* 결제 수단 — 토스페이먼츠 */}
+                {/* 결제 수단 — 토스페이먼츠 위젯 */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -800,13 +840,8 @@ function CheckoutPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
-                            <p className="font-semibold">토스페이먼츠</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                결제하기 버튼을 누르면 토스페이먼츠 결제창이 열립니다.
-                                카드, 계좌이체, 간편결제(토스페이·네이버페이·카카오페이)를 선택할 수 있습니다.
-                            </p>
-                        </div>
+                        <div id="toss-payment-methods" className="min-h-[200px]" />
+                        <div id="toss-agreement" />
                     </CardContent>
                 </Card>
             </div>
@@ -887,11 +922,6 @@ function CheckoutPage() {
                         </div>
 
                         <div className="rounded-2xl border border-border bg-muted p-3 text-xs text-muted-foreground">
-                            결제수단:{" "}
-                            <span className="font-semibold text-foreground">
-                                토스페이먼츠
-                            </span>
-                            <br />
                             수령인:{" "}
                             <span className="font-semibold text-foreground">
                                 {selectedAddress?.recipientName ?? "-"}
