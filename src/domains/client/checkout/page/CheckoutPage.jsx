@@ -26,6 +26,7 @@ import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 import {
     useReserveCheckout,
+    useFetchCheckoutQuote,
     useSubmitCheckout,
     useCancelCheckout,
 } from "@/domains/client/checkout/query/useCheckoutQueries";
@@ -160,6 +161,7 @@ function CheckoutPage() {
 
     // 체크아웃 API mutations
     const reserveMutation = useReserveCheckout();
+    const quoteMutation = useFetchCheckoutQuote();
     const submitMutation = useSubmitCheckout();
     const cancelMutation = useCancelCheckout();
     const submitHotDealMutation = useSubmitHotDealCheckoutMutation();
@@ -439,6 +441,11 @@ function CheckoutPage() {
                 });
             }
 
+            const quote = await quoteMutation.mutateAsync(orderId);
+            const quotedAmount = Number.isFinite(Number(quote?.totalAmount))
+                ? Number(quote.totalAmount)
+                : finalAmount;
+
             // Step 3: 토스페이먼츠 결제창 호출
             const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
             const payment = tossPayments.payment({ customerKey: tossCustomerKey });
@@ -451,11 +458,11 @@ function CheckoutPage() {
             paymentRedirectingRef.current = true;
             await payment.requestPayment({
                 method: "CARD",
-                amount: { currency: "KRW", value: finalAmount },
+                amount: { currency: "KRW", value: quotedAmount },
                 orderId,
                 orderName,
                 customerName: selectedAddress?.recipientName ?? "",
-                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}&mode=${hotDealMode ? "hotdeal" : (fundingMode ? "funding" : (directMode ? "direct" : "cart"))}`,
+                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${quotedAmount}&mode=${hotDealMode ? "hotdeal" : (fundingMode ? "funding" : (directMode ? "direct" : "cart"))}`,
                 failUrl: `${window.location.origin}/order/fail?orderId=${orderId}&mode=${hotDealMode ? "hotdeal" : (fundingMode ? "funding" : (directMode ? "direct" : "cart"))}`,
             });
 
