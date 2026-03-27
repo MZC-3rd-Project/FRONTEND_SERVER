@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
     reserveCheckout,
+    reserveSalesCheckout,
     fetchCheckoutQuote,
     submitCheckout,
     cancelCheckout,
@@ -16,6 +17,15 @@ export function useReserveCheckout() {
     return useMutation({
         mutationFn: async (params) => {
             const payload = await reserveCheckout(params);
+            return mapReservationPayload(payload);
+        },
+    });
+}
+
+export function useReserveSalesCheckout() {
+    return useMutation({
+        mutationFn: async (params) => {
+            const payload = await reserveSalesCheckout(params);
             return mapReservationPayload(payload);
         },
     });

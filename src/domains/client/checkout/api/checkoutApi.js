@@ -10,6 +10,15 @@ export async function reserveCheckout(payload = {}) {
     }
 }
 
+export async function reserveSalesCheckout(payload = {}) {
+    try {
+        const response = await axiosInstance.post("/v1/sales/checkout/reservations", payload);
+        return unwrapApiResponseBody(response, "판매 체크아웃 예약에 실패했습니다.");
+    } catch (error) {
+        throw normalizeApiError(error, "판매 체크아웃 예약 요청에 실패했습니다.");
+    }
+}
+
 export async function fetchCheckoutQuote(orderId) {
     try {
         const response = await axiosInstance.post("/v1/sales/checkout/quotes", {

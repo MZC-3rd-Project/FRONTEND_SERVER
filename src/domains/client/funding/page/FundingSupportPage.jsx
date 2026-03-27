@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { buildFundingRewardCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
 import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
-import { useReserveCheckout } from "@/domains/client/checkout/query/useCheckoutQueries";
+import { useReserveSalesCheckout } from "@/domains/client/checkout/query/useCheckoutQueries";
 import {
     buildCartCheckoutReservationPayload,
     buildCheckoutIdempotencyKey,
@@ -23,7 +23,7 @@ function FundingSupportPage() {
     const navigate = useNavigate();
     const { data: campaign, isLoading, isError, error, refetch, isFetching } = useFundingCampaignDetailQuery(campaignId);
     const addCartItemMutation = useAddCartItemMutation();
-    const reserveCheckoutMutation = useReserveCheckout();
+    const reserveCheckoutMutation = useReserveSalesCheckout();
 
     const [supporterName, setSupporterName] = useState("김도윤");
     const [supporterEmail, setSupporterEmail] = useState("donmoa.user@example.com");
