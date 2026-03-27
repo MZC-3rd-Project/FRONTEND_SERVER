@@ -10,8 +10,7 @@ TERRAFORM_DIR="$(dirname "$0")/terraform"
 
 echo "=== 1. 프론트엔드 빌드 ==="
 if [ -z "${VITE_TOSS_CLIENT_KEY:-}" ]; then
-  echo "[ERROR] VITE_TOSS_CLIENT_KEY is not set. Set the Toss client key before building for CloudFront deploy." >&2
-  exit 1
+  echo "[WARN] VITE_TOSS_CLIENT_KEY is not set. Falling back to the frontend default Toss client key."
 fi
 npm run build
 

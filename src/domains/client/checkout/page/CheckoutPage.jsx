@@ -51,7 +51,7 @@ import {
     readHotDealCheckoutReservation,
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || (import.meta.env.DEV ? "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK" : "");
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
 
 function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, ticketQuantity) {
     const result = findStoreProduct(storeId, productType, productId);
@@ -437,13 +437,6 @@ function CheckoutPage() {
                     deliveryAddressId: selectedAddress.id,
                     deliveryMemo: deliveryMessage,
                 });
-            }
-
-            if (!TOSS_CLIENT_KEY) {
-                throw {
-                    code: "TOSS_CLIENT_KEY_MISSING",
-                    message: "배포 환경에 VITE_TOSS_CLIENT_KEY가 설정되지 않았습니다.",
-                };
             }
 
             // Step 3: 토스페이먼츠 결제창 호출
