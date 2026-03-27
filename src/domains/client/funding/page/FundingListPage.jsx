@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Empty,
     EmptyContent,
@@ -76,6 +77,7 @@ export default function FundingListPage() {
         category: "전체",
         status: "전체",
     });
+    const [showInactive, setShowInactive] = useState(false);
     const { pendingItemId, openItem } = useCatalogItemNavigation();
     const fundingListQuery = useInfiniteFundingCampaignsQuery({ size: 12 });
     const campaigns = useMemo(() => flattenPages(fundingListQuery.data), [fundingListQuery.data]);
@@ -112,7 +114,19 @@ export default function FundingListPage() {
             enabled: isInlineSearchActive,
         }
     );
-    const inlineItems = useMemo(() => flattenPages(inlineSearchQuery.data), [inlineSearchQuery.data]);
+    const inlineItems = useMemo(() => {
+        const items = flattenPages(inlineSearchQuery.data);
+        if (showInactive || appliedSearch.status !== "전체") {
+            return items;
+        }
+        return items.filter((item) => item.statusCode === "FUNDING");
+    }, [appliedSearch.status, inlineSearchQuery.data, showInactive]);
+    const visibleCampaigns = useMemo(() => {
+        if (showInactive || appliedSearch.status !== "전체") {
+            return campaigns;
+        }
+        return campaigns.filter((campaign) => campaign.statusCode === "ACTIVE");
+    }, [appliedSearch.status, campaigns, showInactive]);
 
     const listSentinelRef = useInfiniteScrollTrigger({
         enabled: !isInlineSearchActive && fundingListQuery.hasNextPage && !fundingListQuery.isFetchingNextPage,
@@ -173,6 +187,19 @@ export default function FundingListPage() {
                     </section>
                 ) : null}
 
+                <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-zinc-200/80 bg-white/95 px-5 py-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+                    <div>
+                        <p className="text-sm font-semibold text-zinc-900">기본 노출 정책</p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                            기본은 진행중 캠페인만 보이고, 체크하면 완료/실패/취소된 펀딩도 함께 봅니다.
+                        </p>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700">
+                        <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
+                        비활성/마감 포함해서 보기
+                    </label>
+                </section>
+
                 {isInlineSearchActive ? (
                     <CatalogSearchResults
                         items={inlineItems}
@@ -206,15 +233,17 @@ export default function FundingListPage() {
                             </Alert>
                         ) : null}
 
-                        {!fundingListQuery.isPending && !fundingListQuery.isError && campaigns.length === 0 ? (
+                        {!fundingListQuery.isPending && !fundingListQuery.isError && visibleCampaigns.length === 0 ? (
                             <Empty className="rounded-3xl border border-border bg-card">
                                 <EmptyHeader>
                                     <EmptyMedia variant="icon">
                                         <Users className="size-5" />
                                     </EmptyMedia>
-                                    <EmptyTitle>노출 중인 펀딩이 없습니다</EmptyTitle>
+                                    <EmptyTitle>{showInactive ? "노출 중인 펀딩이 없습니다" : "진행중인 펀딩이 없습니다"}</EmptyTitle>
                                     <EmptyDescription>
-                                        현재 조건에 맞는 캠페인이 없습니다. 잠시 후 다시 확인해 주세요.
+                                        {showInactive
+                                            ? "현재 조건에 맞는 캠페인이 없습니다. 잠시 후 다시 확인해 주세요."
+                                            : "현재 진행중인 캠페인이 없습니다. 체크를 켜면 완료/실패 프로젝트도 볼 수 있습니다."}
                                     </EmptyDescription>
                                 </EmptyHeader>
                                 <EmptyContent>
@@ -225,10 +254,10 @@ export default function FundingListPage() {
                             </Empty>
                         ) : null}
 
-                        {!fundingListQuery.isPending && !fundingListQuery.isError && campaigns.length > 0 ? (
+                        {!fundingListQuery.isPending && !fundingListQuery.isError && visibleCampaigns.length > 0 ? (
                             <div className="space-y-4">
                                 <section className="grid gap-4 md:grid-cols-2">
-                                    {campaigns.map((campaign) => (
+                                    {visibleCampaigns.map((campaign) => (
                                         <Link
                                             key={campaign.id}
                                             to={`/funding/${encodeIdPathSegment(campaign.id)}`}

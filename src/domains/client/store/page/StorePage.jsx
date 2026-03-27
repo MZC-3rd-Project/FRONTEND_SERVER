@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Empty,
     EmptyContent,
@@ -67,10 +68,13 @@ function StorePage() {
         category: "전체",
         status: "전체",
     });
+    const [showInactive, setShowInactive] = useState(false);
     const isInlineSearchActive = isSearchCriteriaActive(appliedSearch);
     const storesQuery = useInfiniteStoresQuery({
         q: appliedSearch.keyword || undefined,
-        status: mapStoreStatusLabelToQueryStatus(appliedSearch.status) || undefined,
+        status:
+            mapStoreStatusLabelToQueryStatus(appliedSearch.status)
+            || (!showInactive && appliedSearch.status === "전체" ? "ACTIVE" : undefined),
         size: 12,
     });
     const stores = useMemo(() => flattenPages(storesQuery.data), [storesQuery.data]);
@@ -115,6 +119,19 @@ function StorePage() {
                     </section>
                 ) : null}
 
+                <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-zinc-200/80 bg-white/95 px-5 py-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+                    <div>
+                        <p className="text-sm font-semibold text-zinc-900">기본 노출 정책</p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                            기본은 운영중인 스토어만 보여주고, 체크하면 비활성/중지된 스토어도 함께 볼 수 있습니다.
+                        </p>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700">
+                        <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
+                        비활성 스토어 포함해서 보기
+                    </label>
+                </section>
+
                 {storesQuery.isPending ? <StoreListSkeleton /> : null}
 
                 {!storesQuery.isPending && storesQuery.isError ? (
@@ -136,11 +153,17 @@ function StorePage() {
                             <EmptyMedia variant="icon">
                                 <StoreIcon className="size-5" />
                             </EmptyMedia>
-                            <EmptyTitle>{isInlineSearchActive ? "조건에 맞는 스토어가 없습니다" : "노출 중인 스토어가 없습니다"}</EmptyTitle>
+                            <EmptyTitle>
+                                {isInlineSearchActive
+                                    ? "조건에 맞는 스토어가 없습니다"
+                                    : (showInactive ? "노출 중인 스토어가 없습니다" : "운영중인 스토어가 없습니다")}
+                            </EmptyTitle>
                             <EmptyDescription>
                                 {isInlineSearchActive
                                     ? "다른 키워드나 상태로 다시 검색해 보세요."
-                                    : "현재 공개된 스토어가 없습니다. 잠시 후 다시 확인해 주세요."}
+                                    : (showInactive
+                                        ? "현재 공개된 스토어가 없습니다. 잠시 후 다시 확인해 주세요."
+                                        : "현재 운영중인 스토어가 없습니다. 체크를 켜면 비활성/중지 스토어도 볼 수 있습니다.")}
                             </EmptyDescription>
                         </EmptyHeader>
                         <EmptyContent>

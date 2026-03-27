@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, CreditCard, Loader2, PackageCheck, ShoppingBag, Truck } from "lucide-react";
 
@@ -16,6 +16,7 @@ const STATUS_FILTERS = [
     { value: "CANCELLED", label: "주문취소" },
     { value: "REFUNDED", label: "환불완료" },
 ];
+const ORDER_LIST_PAGE_SIZE = 10;
 
 function OrderItemPreview({ item }) {
     return (
@@ -56,14 +57,26 @@ function OrderListPage() {
     const [page, setPage] = useState(0);
     const [statusFilter, setStatusFilter] = useState("");
 
-    const queryParams = { page, size: 10, ...(statusFilter && { status: statusFilter }) };
+    const queryParams = { page: 0, size: 100 };
     const { data, isLoading, isError, error } = useOrdersQuery(queryParams);
 
-    const orders = data?.orders ?? [];
-    const totalPages = data?.totalPages ?? 1;
+    const allOrders = useMemo(() => data?.orders ?? [], [data?.orders]);
+    const filteredOrders = useMemo(() => {
+        if (!statusFilter) {
+            return allOrders;
+        }
 
-    const shippingCount = orders.filter((o) => o.status === "SHIPPING").length;
-    const completeCount = orders.filter(
+        return allOrders.filter((order) => order.status === statusFilter);
+    }, [allOrders, statusFilter]);
+    const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDER_LIST_PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages - 1);
+    const orders = useMemo(() => {
+        const startIndex = currentPage * ORDER_LIST_PAGE_SIZE;
+        return filteredOrders.slice(startIndex, startIndex + ORDER_LIST_PAGE_SIZE);
+    }, [currentPage, filteredOrders]);
+
+    const shippingCount = allOrders.filter((o) => o.status === "SHIPPING").length;
+    const completeCount = allOrders.filter(
         (o) => o.status === "DELIVERED" || o.status === "COMPLETED",
     ).length;
 
@@ -110,8 +123,8 @@ function OrderListPage() {
                 <Card className="border-zinc-200/80 bg-white/95 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
                     <CardContent className="flex items-center justify-between p-4 text-sm">
                         <div>
-                            <p className="text-zinc-500">전체 주문</p>
-                            <p className="text-2xl font-black text-zinc-950">{data?.totalCount ?? 0}</p>
+                        <p className="text-zinc-500">전체 주문</p>
+                        <p className="text-2xl font-black text-zinc-950">{allOrders.length}</p>
                         </div>
                         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-zinc-950 text-white">
                             <ShoppingBag className="h-5 w-5" />
@@ -250,13 +263,13 @@ function OrderListPage() {
                         이전
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                        {page + 1} / {totalPages}
+                        {currentPage + 1} / {totalPages}
                     </span>
                     <Button
                         variant="outline"
                         size="sm"
                         className="rounded-full"
-                        disabled={page >= totalPages - 1}
+                        disabled={currentPage >= totalPages - 1}
                         onClick={() => setPage((p) => p + 1)}
                     >
                         다음

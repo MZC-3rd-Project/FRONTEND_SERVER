@@ -63,8 +63,7 @@ export function mapNormalSaleListPayload(payload) {
                     activeCampaignId: toId(item?.activeCampaignId ?? item?.campaignId),
                     storeName: toText(item?.storeName, ""),
                 };
-            })
-            .filter((item) => item.statusCode === "ON_SALE"),
+            }),
         nextCursor: payload?.nextCursor ?? null,
         totalCount: payload?.totalCount ?? null,
     };

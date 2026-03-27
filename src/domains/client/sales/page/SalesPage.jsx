@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Empty,
     EmptyContent,
@@ -90,6 +91,7 @@ function SalesPage() {
         category: "전체",
         status: "전체",
     });
+    const [showInactive, setShowInactive] = useState(false);
     const { pendingItemId, openItem } = useCatalogItemNavigation();
     const salesQuery = useInfiniteNormalSalesQuery({ size: 12 });
     const salesItems = useMemo(() => flattenPages(salesQuery.data), [salesQuery.data]);
@@ -126,10 +128,19 @@ function SalesPage() {
             enabled: isInlineSearchActive,
         }
     );
-    const inlineItems = useMemo(
-        () => flattenPages(inlineSearchQuery.data).filter((item) => item.statusCode === "ON_SALE"),
-        [inlineSearchQuery.data]
-    );
+    const inlineItems = useMemo(() => {
+        const items = flattenPages(inlineSearchQuery.data);
+        if (showInactive || appliedSearch.status !== "전체") {
+            return items;
+        }
+        return items.filter((item) => item.statusCode === "ON_SALE");
+    }, [appliedSearch.status, inlineSearchQuery.data, showInactive]);
+    const visibleSalesItems = useMemo(() => {
+        if (showInactive || appliedSearch.status !== "전체") {
+            return salesItems;
+        }
+        return salesItems.filter((item) => item.statusCode === "ON_SALE");
+    }, [appliedSearch.status, salesItems, showInactive]);
 
     const listSentinelRef = useInfiniteScrollTrigger({
         enabled: !isInlineSearchActive && salesQuery.hasNextPage && !salesQuery.isFetchingNextPage,
@@ -186,6 +197,19 @@ function SalesPage() {
                     </section>
                 ) : null}
 
+                <section className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-zinc-200/80 bg-white/95 px-5 py-4 shadow-[0_14px_40px_rgba(15,23,42,0.05)]">
+                    <div>
+                        <p className="text-sm font-semibold text-zinc-900">기본 노출 정책</p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                            기본은 판매중 상품만 보여주고, 체크하면 품절/종료/일시중지 상품도 함께 볼 수 있습니다.
+                        </p>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-full border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-medium text-zinc-700">
+                        <Checkbox checked={showInactive} onCheckedChange={(checked) => setShowInactive(checked === true)} />
+                        비활성 상품 포함해서 보기
+                    </label>
+                </section>
+
                 {isInlineSearchActive ? (
                     <CatalogSearchResults
                         items={inlineItems}
@@ -219,15 +243,17 @@ function SalesPage() {
                             </Alert>
                         ) : null}
 
-                        {!salesQuery.isPending && !salesQuery.isError && salesItems.length === 0 ? (
+                        {!salesQuery.isPending && !salesQuery.isError && visibleSalesItems.length === 0 ? (
                             <Empty className="rounded-3xl border border-border bg-card">
                                 <EmptyHeader>
                                     <EmptyMedia variant="icon">
                                         <PackageCheck className="size-5" />
                                     </EmptyMedia>
-                                    <EmptyTitle>노출 중인 일반판매 상품이 없습니다</EmptyTitle>
+                                    <EmptyTitle>{showInactive ? "노출 중인 일반판매 상품이 없습니다" : "판매중인 일반판매 상품이 없습니다"}</EmptyTitle>
                                     <EmptyDescription>
-                                        현재 일반판매로 전환된 상품이 없습니다. 잠시 후 다시 확인해 주세요.
+                                        {showInactive
+                                            ? "현재 일반판매로 전환된 상품이 없습니다. 잠시 후 다시 확인해 주세요."
+                                            : "현재 판매중인 일반판매 상품이 없습니다. 체크를 켜면 품절/종료 상품도 볼 수 있습니다."}
                                     </EmptyDescription>
                                 </EmptyHeader>
                                 <EmptyContent>
@@ -238,10 +264,10 @@ function SalesPage() {
                             </Empty>
                         ) : null}
 
-                        {!salesQuery.isPending && !salesQuery.isError && salesItems.length > 0 ? (
+                        {!salesQuery.isPending && !salesQuery.isError && visibleSalesItems.length > 0 ? (
                             <div className="space-y-4">
                                 <section className="grid gap-4 md:grid-cols-2">
-                                    {salesItems.map((item) => (
+                                    {visibleSalesItems.map((item) => (
                                         <Link
                                             key={item.id}
                                             to={buildSalesDetailPath(item)}
