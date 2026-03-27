@@ -9,6 +9,10 @@ set -e
 TERRAFORM_DIR="$(dirname "$0")/terraform"
 
 echo "=== 1. 프론트엔드 빌드 ==="
+if [ -z "${VITE_TOSS_CLIENT_KEY:-}" ]; then
+  echo "[ERROR] VITE_TOSS_CLIENT_KEY is not set. Set the Toss client key before building for CloudFront deploy." >&2
+  exit 1
+fi
 npm run build
 
 echo "=== 2. Terraform으로 인프라 프로비저닝 ==="

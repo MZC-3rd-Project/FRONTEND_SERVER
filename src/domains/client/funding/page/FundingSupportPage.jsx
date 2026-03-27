@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { buildFundingRewardCartItemInput } from "@/domains/client/cart/lib/cartEntryBuilders";
 import { useAddCartItemMutation } from "@/domains/client/cart/query/useCartQueries";
+import { useReserveCheckout } from "@/domains/client/checkout/query/useCheckoutQueries";
+import {
+    buildCartCheckoutReservationPayload,
+    buildCheckoutIdempotencyKey,
+    createFundingCheckoutReservationState,
+    persistFundingCheckoutReservation,
+} from "@/domains/client/checkout/lib/checkoutReservation.js";
 import { useFundingCampaignDetailQuery } from "@/domains/client/funding/query/useFundingQueries";
 import { paymentMethods } from "@/domains/client/order/mock/orderData.js";
 
@@ -16,6 +23,7 @@ function FundingSupportPage() {
     const navigate = useNavigate();
     const { data: campaign, isLoading, isError, error, refetch, isFetching } = useFundingCampaignDetailQuery(campaignId);
     const addCartItemMutation = useAddCartItemMutation();
+    const reserveCheckoutMutation = useReserveCheckout();
 
     const [supporterName, setSupporterName] = useState("김도윤");
     const [supporterEmail, setSupporterEmail] = useState("donmoa.user@example.com");
@@ -96,17 +104,36 @@ function FundingSupportPage() {
 
     const canSubmit = Boolean(selectedReward) && !selectedReward?.soldOut;
 
-    const submitSupport = () => {
+    const submitSupport = async () => {
         if (!campaign || !selectedReward) {
             return;
         }
 
-        const orderId = `FD${Date.now()}`;
-        navigate(
-            `/funding/support/complete?campaignId=${encodeURIComponent(String(campaign.id ?? ""))}&orderId=${encodeURIComponent(
-                String(orderId)
-            )}`
-        );
+        setCartFeedback(null);
+
+        try {
+            const lineItem = buildFundingRewardCartItemInput(campaign, selectedReward);
+            const quantity = lineItem.quantity ?? 1;
+            const payload = buildCartCheckoutReservationPayload([lineItem]);
+            const reservation = await reserveCheckoutMutation.mutateAsync(payload);
+            const reservationState = createFundingCheckoutReservationState({
+                reservation,
+                campaign,
+                reward: selectedReward,
+                quantity,
+                idempotencyKey: payload.idempotencyKey ?? buildCheckoutIdempotencyKey(),
+            });
+
+            persistFundingCheckoutReservation(reservationState);
+            navigate(`/checkout?mode=funding&campaignId=${encodeURIComponent(String(campaign.id ?? ""))}`, {
+                state: { fundingReservation: reservationState },
+            });
+        } catch (reservationError) {
+            setCartFeedback({
+                type: "error",
+                message: reservationError?.message ?? "펀딩 결제 예약에 실패했습니다.",
+            });
+        }
     };
 
     const handleAddToCart = async () => {
@@ -274,11 +301,11 @@ function FundingSupportPage() {
                         <Button
                             type="button"
                             onClick={submitSupport}
-                            disabled={!canSubmit}
+                            disabled={!canSubmit || reserveCheckoutMutation.isPending}
                             className="h-10 w-full rounded-full text-sm font-semibold"
                         >
                             <HeartHandshake className="h-4 w-4" />
-                            {canSubmit ? "후원 결제 진행" : "후원 준비 중"}
+                            {reserveCheckoutMutation.isPending ? "결제 페이지 준비 중..." : (canSubmit ? "후원 결제 진행" : "후원 준비 중")}
                         </Button>
                         {cartFeedback ? (
                             <Alert variant={cartFeedback.type === "error" ? "destructive" : "default"}>

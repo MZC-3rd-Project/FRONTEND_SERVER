@@ -4,7 +4,44 @@ import { normalizeApiError, unwrapApiResponseBody } from "@/common/api/responseU
 export async function fetchOrders(params = {}) {
     try {
         const response = await axiosInstance.get("/v1/orders", { params });
-        return unwrapApiResponseBody(response, "주문 목록을 불러오지 못했습니다.");
+        const payload = unwrapApiResponseBody(response, "주문 목록을 불러오지 못했습니다.");
+        const content = Array.isArray(payload?.content) ? payload.content : Array.isArray(payload) ? payload : [];
+
+        if (content.length === 0) {
+            return payload;
+        }
+
+        const detailResults = await Promise.allSettled(
+            content.map((order) => {
+                const orderId = order?.orderId ?? order?.id;
+                return orderId ? fetchOrderDetail(orderId) : Promise.resolve(null);
+            })
+        );
+
+        const enrichedContent = content.map((order, index) => {
+            const detailPayload = detailResults[index]?.status === "fulfilled"
+                ? detailResults[index].value
+                : null;
+
+            if (!detailPayload) {
+                return order;
+            }
+
+            return {
+                ...order,
+                items: Array.isArray(detailPayload?.items) ? detailPayload.items : order?.items,
+                orderItems: Array.isArray(detailPayload?.items) ? detailPayload.items : order?.orderItems,
+            };
+        });
+
+        if (Array.isArray(payload)) {
+            return enrichedContent;
+        }
+
+        return {
+            ...payload,
+            content: enrichedContent,
+        };
     } catch (error) {
         throw normalizeApiError(error, "주문 목록 조회에 실패했습니다.");
     }

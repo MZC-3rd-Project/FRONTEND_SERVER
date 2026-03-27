@@ -5,18 +5,20 @@ import { Loader2, PackageSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPrice } from "@/domains/client/common/utils/format.js";
+import OrderItemReviewAction from "@/domains/client/order/component/OrderItemReviewAction.jsx";
 import {
     useOrderDetailQuery,
     useCancelOrderMutation,
     useRefundOrderMutation,
 } from "@/domains/client/order/query/useOrderQueries";
-import { canCancelOrder, canRefundOrder } from "@/domains/client/order/lib/orderMappers";
+import { canCancelOrder, canRefundOrder, canWriteReview } from "@/domains/client/order/lib/orderMappers";
 
 function OrderDetailPage() {
     const { orderId } = useParams();
     const { data: order, isLoading, isError, error } = useOrderDetailQuery(orderId);
     const cancelMutation = useCancelOrderMutation();
     const refundMutation = useRefundOrderMutation();
+    const reviewable = canWriteReview(order?.status);
 
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showRefundConfirm, setShowRefundConfirm] = useState(false);
@@ -111,11 +113,14 @@ function OrderDetailPage() {
                                                 </p>
                                             )}
                                         </div>
-                                        <div className="text-right">
+                                        <div className="flex flex-col items-end gap-2 text-right">
                                             <p className="text-xs text-muted-foreground">x {item.quantity}</p>
                                             <p className="text-sm font-semibold text-foreground">
-                                                {formatPrice(item.unitPrice * item.quantity)}
+                                                {formatPrice(item.lineAmount)}
                                             </p>
+                                            {reviewable ? (
+                                                <OrderItemReviewAction orderId={order.id} item={item} />
+                                            ) : null}
                                         </div>
                                     </div>
                                 ))

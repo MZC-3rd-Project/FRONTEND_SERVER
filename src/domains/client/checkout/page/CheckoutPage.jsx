@@ -41,15 +41,17 @@ import {
 import {
     buildCartCheckoutReservationPayload,
     clearCartCheckoutReservation,
+    clearFundingCheckoutReservation,
     clearHotDealCheckoutReservation,
     createCartCheckoutReservationState,
     persistCartCheckoutReservation,
     persistHotDealCheckoutReservation,
     readCartCheckoutReservation,
+    readFundingCheckoutReservation,
     readHotDealCheckoutReservation,
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
-const TOSS_CLIENT_KEY = "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK";
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || (import.meta.env.DEV ? "test_ck_5OWRapdA8dPQ40RPYJ6A8o1zEqZK" : "");
 
 function buildDirectCheckoutItem(storeId, productType, productId, ticketGrade, ticketQuantity) {
     const result = findStoreProduct(storeId, productType, productId);
@@ -124,6 +126,7 @@ function CheckoutPage() {
     const [searchParams] = useSearchParams();
     const directMode = searchParams.get("mode") === "direct";
     const hotDealMode = searchParams.get("mode") === "hotdeal";
+    const fundingMode = searchParams.get("mode") === "funding";
     const directStoreId = searchParams.get("storeId") ?? "";
     const directProductType = searchParams.get("productType") ?? "";
     const directProductId = searchParams.get("productId") ?? "";
@@ -144,7 +147,7 @@ function CheckoutPage() {
         refetch: refetchCart,
         isFetching: isCartFetching,
     } = useCartQuery({
-        enabled: !directMode && !hotDealMode,
+        enabled: !directMode && !hotDealMode && !fundingMode,
     });
 
     // 배송지 조회
@@ -181,6 +184,12 @@ function CheckoutPage() {
         }
         return location.state?.hotDealReservation ?? readHotDealCheckoutReservation();
     });
+    const [fundingReservation, setFundingReservation] = useState(() => {
+        if (!fundingMode) {
+            return null;
+        }
+        return location.state?.fundingReservation ?? readFundingCheckoutReservation();
+    });
 
     const directItem = useMemo(
         () =>
@@ -214,9 +223,12 @@ function CheckoutPage() {
             if (hotDealMode) {
                 return hotDealReservation?.checkoutItems ?? [];
             }
+            if (fundingMode) {
+                return fundingReservation?.checkoutItems ?? [];
+            }
             return cartReservation?.checkoutItems ?? [];
         },
-        [cartReservation, directMode, hotDealMode, hotDealReservation],
+        [cartReservation, directMode, fundingMode, hotDealMode, hotDealReservation, fundingReservation],
     );
     const checkoutItems = useMemo(
         () => (directMode ? (directItem ? [directItem] : []) : (reservedCheckoutItems.length > 0 ? reservedCheckoutItems : cartCheckoutItems)),
@@ -318,8 +330,10 @@ function CheckoutPage() {
         if (directMode) {
             clearCartCheckoutReservation();
             clearHotDealCheckoutReservation();
+            clearFundingCheckoutReservation();
             setCartReservation(null);
             setHotDealReservation(null);
+            setFundingReservation(null);
             orderIdRef.current = null;
             orderCreatedRef.current = false;
             return;
@@ -327,19 +341,35 @@ function CheckoutPage() {
 
         if (hotDealMode) {
             clearCartCheckoutReservation();
+            clearFundingCheckoutReservation();
             const nextReservation = location.state?.hotDealReservation ?? readHotDealCheckoutReservation();
             setHotDealReservation(nextReservation ?? null);
+            setFundingReservation(null);
+            orderIdRef.current = nextReservation?.orderId ?? null;
+            orderCreatedRef.current = Boolean(nextReservation?.submitted);
+            return;
+        }
+
+        if (fundingMode) {
+            clearHotDealCheckoutReservation();
+            clearCartCheckoutReservation();
+            const nextReservation = location.state?.fundingReservation ?? readFundingCheckoutReservation();
+            setFundingReservation(nextReservation ?? null);
+            setHotDealReservation(null);
+            setCartReservation(null);
             orderIdRef.current = nextReservation?.orderId ?? null;
             orderCreatedRef.current = Boolean(nextReservation?.submitted);
             return;
         }
 
         clearHotDealCheckoutReservation();
+        clearFundingCheckoutReservation();
         const nextReservation = location.state?.cartReservation ?? readCartCheckoutReservation();
         setCartReservation(nextReservation ?? null);
+        setFundingReservation(null);
         orderIdRef.current = nextReservation?.orderId ?? null;
         orderCreatedRef.current = false;
-    }, [directMode, hotDealMode, location.state]);
+    }, [directMode, fundingMode, hotDealMode, location.state]);
 
     // 금액 계산
     const subtotal = useMemo(
@@ -364,9 +394,11 @@ function CheckoutPage() {
         try {
             let orderId = hotDealMode
                 ? (hotDealReservation?.orderId ?? null)
+                : fundingMode
+                    ? (fundingReservation?.orderId ?? null)
                 : (cartReservation?.orderId ?? null);
 
-            if (!orderId && !hotDealMode) {
+            if (!orderId && !hotDealMode && !fundingMode) {
                 const payload = buildCartCheckoutReservationPayload(cart?.selectedItems ?? []);
                 const reservation = await reserveMutation.mutateAsync(payload);
                 const reservationState = createCartCheckoutReservationState({
@@ -407,6 +439,13 @@ function CheckoutPage() {
                 });
             }
 
+            if (!TOSS_CLIENT_KEY) {
+                throw {
+                    code: "TOSS_CLIENT_KEY_MISSING",
+                    message: "배포 환경에 VITE_TOSS_CLIENT_KEY가 설정되지 않았습니다.",
+                };
+            }
+
             // Step 3: 토스페이먼츠 결제창 호출
             const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
             const payment = tossPayments.payment({ customerKey: tossCustomerKey });
@@ -423,13 +462,14 @@ function CheckoutPage() {
                 orderId,
                 orderName,
                 customerName: selectedAddress?.recipientName ?? "",
-                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
-                failUrl: `${window.location.origin}/order/fail?orderId=${orderId}&mode=${hotDealMode ? "hotdeal" : (directMode ? "direct" : "cart")}`,
+                successUrl: `${window.location.origin}/order/complete?orderId=${orderId}&amount=${finalAmount}&mode=${hotDealMode ? "hotdeal" : (fundingMode ? "funding" : (directMode ? "direct" : "cart"))}`,
+                failUrl: `${window.location.origin}/order/fail?orderId=${orderId}&mode=${hotDealMode ? "hotdeal" : (fundingMode ? "funding" : (directMode ? "direct" : "cart"))}`,
             });
 
             // 토스가 successUrl로 리다이렉트하므로 여기까지 오지 않음
             clearCartCheckoutReservation();
             clearHotDealCheckoutReservation();
+            clearFundingCheckoutReservation();
             orderIdRef.current = null;
         } catch (error) {
             paymentRedirectingRef.current = false;
@@ -452,7 +492,11 @@ function CheckoutPage() {
                     clearHotDealCheckoutReservation();
                 } else {
                     cancelMutation.mutate(orderIdRef.current);
-                    clearCartCheckoutReservation();
+                    if (fundingMode) {
+                        clearFundingCheckoutReservation();
+                    } else {
+                        clearCartCheckoutReservation();
+                    }
                 }
                 orderIdRef.current = null;
                 orderCreatedRef.current = false;
@@ -482,7 +526,11 @@ function CheckoutPage() {
                     clearHotDealCheckoutReservation();
                 } else {
                     cancelMutation.mutate(orderIdRef.current);
-                    clearCartCheckoutReservation();
+                    if (fundingMode) {
+                        clearFundingCheckoutReservation();
+                    } else {
+                        clearCartCheckoutReservation();
+                    }
                 }
                 orderIdRef.current = null;
                 orderCreatedRef.current = false;
@@ -492,12 +540,12 @@ function CheckoutPage() {
     }, []);
 
     // --- 로딩 상태 ---
-    if (!directMode && !hotDealMode && isCartLoading) {
+    if (!directMode && !hotDealMode && !fundingMode && isCartLoading) {
         return <CheckoutPageSkeleton />;
     }
 
     // --- 장바구니 에러 ---
-    if (!directMode && !hotDealMode && isCartError) {
+    if (!directMode && !hotDealMode && !fundingMode && isCartError) {
         return (
             <div className="grid min-h-[60vh] place-items-center">
                 <Card className="w-full max-w-lg">
@@ -571,6 +619,14 @@ function CheckoutPage() {
                                 {hotDealReservation?.checkoutItems?.[0]?.name ?? "핫딜 상품"}
                             </span>{" "}
                             {hotDealReservation?.quantity ?? checkoutItems.length}건을 결제합니다.
+                        </p>
+                    ) : fundingMode ? (
+                        <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
+                            펀딩 리워드:{" "}
+                            <span className="font-semibold">
+                                {fundingReservation?.checkoutItems?.[0]?.name ?? "펀딩 리워드"}
+                            </span>{" "}
+                            {fundingReservation?.quantity ?? checkoutItems.length}건을 결제합니다.
                         </p>
                     ) : (
                         <p className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
@@ -935,8 +991,14 @@ function CheckoutPage() {
                             {formatPrice(finalAmount)} 결제하기
                         </Button>
                         <Button asChild variant="ghost" className="h-9 w-full rounded-full">
-                            <Link to={directItem ? directBackLink : "/cart"}>
-                                {directItem ? "상품 상세로 돌아가기" : "장바구니로 돌아가기"}
+                            <Link to={
+                                directItem
+                                    ? directBackLink
+                                    : fundingMode
+                                        ? `/funding/${encodeURIComponent(String(fundingReservation?.campaignId ?? searchParams.get("campaignId") ?? ""))}/support`
+                                        : "/cart"
+                            }>
+                                {directItem ? "상품 상세로 돌아가기" : (fundingMode ? "후원 페이지로 돌아가기" : "장바구니로 돌아가기")}
                             </Link>
                         </Button>
                     </CardContent>
@@ -949,7 +1011,7 @@ function CheckoutPage() {
                             결제 연동 상태
                         </p>
                         <p className="mt-1">
-                            체크아웃 API + 토스페이먼츠 테스트 모드가 연동되어 있습니다.
+                            체크아웃 API + 토스페이먼츠 테스트/실서버 모드가 연동되어 있습니다.
                             배송지는 profile-service와 연동됩니다.
                         </p>
                     </CardContent>

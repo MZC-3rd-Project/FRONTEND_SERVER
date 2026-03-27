@@ -31,9 +31,15 @@ export function canRefundOrder(status) {
     return ["PAID", "SHIPPING", "DELIVERED", "COMPLETED"].includes(status);
 }
 
+export function canWriteReview(status) {
+    return ["DELIVERED", "COMPLETED"].includes(status);
+}
+
 function mapOrderItem(raw) {
     return {
-        id: toText(raw.id ?? raw.itemId ?? raw.orderItemId),
+        id: toText(raw.orderItemId ?? raw.id ?? raw.itemId),
+        orderItemId: toText(raw.orderItemId ?? raw.id),
+        itemId: toText(raw.itemId ?? raw.id),
         name: toText(raw.name ?? raw.productName ?? raw.itemName ?? raw.titleSnap ?? raw.title),
         option: toText(raw.option ?? raw.optionName ?? raw.itemTypeSnap),
         thumbnail: toText(raw.thumbnail ?? raw.thumbnailUrl ?? raw.imageUrl),
@@ -41,6 +47,7 @@ function mapOrderItem(raw) {
         storeId: toText(raw.storeId),
         quantity: toNumber(raw.quantity, 1),
         unitPrice: toNumber(raw.unitPrice ?? raw.price ?? raw.priceSnap),
+        lineAmount: toNumber(raw.lineAmount, toNumber(raw.unitPrice ?? raw.price ?? raw.priceSnap) * toNumber(raw.quantity, 1)),
     };
 }
 

@@ -38,6 +38,11 @@ function OrderFailPage() {
     const displayMessage =
         reasonMessages[code] ?? (message || "알 수 없는 오류가 발생했습니다.");
     const canRetry = RETRYABLE_CODES.has(code);
+    const retryLink = mode === "hotdeal"
+        ? `/checkout?mode=hotdeal${orderId ? `&orderId=${encodeURIComponent(orderId)}` : ""}`
+        : mode === "funding"
+            ? `/checkout?mode=funding${orderId ? `&orderId=${encodeURIComponent(orderId)}` : ""}`
+            : "/checkout";
 
     return (
         <div className="mx-auto max-w-3xl space-y-6">
@@ -75,7 +80,7 @@ function OrderFailPage() {
 
             <div className="flex flex-wrap gap-2">
                 <Button asChild className="rounded-full px-5">
-                    <Link to={mode === "hotdeal" && orderId ? `/checkout?mode=hotdeal&orderId=${encodeURIComponent(orderId)}` : "/checkout"}>
+                    <Link to={retryLink}>
                         <RefreshCw className="h-4 w-4" />
                         결제 다시 시도
                     </Link>

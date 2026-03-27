@@ -10,6 +10,7 @@ import { useOrderDetailQuery } from "@/domains/client/order/query/useOrderQuerie
 import { useConfirmPayment } from "@/domains/client/payment/query/usePaymentQueries";
 import {
     clearCartCheckoutReservation,
+    clearFundingCheckoutReservation,
     clearHotDealCheckoutReservation,
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
@@ -27,6 +28,8 @@ function OrderCompletePage() {
     useEffect(() => {
         if (mode === "hotdeal") {
             clearHotDealCheckoutReservation();
+        } else if (mode === "funding") {
+            clearFundingCheckoutReservation();
         } else {
             clearCartCheckoutReservation();
         }
