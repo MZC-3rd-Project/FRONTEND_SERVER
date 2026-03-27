@@ -14,6 +14,12 @@ import {
     clearHotDealCheckoutReservation,
 } from "@/domains/client/checkout/lib/checkoutReservation.js";
 
+const PAID_ORDER_STATUSES = new Set(["PAID", "SHIPPING", "DELIVERED", "COMPLETED"]);
+
+function isPaidOrderStatus(status) {
+    return PAID_ORDER_STATUSES.has(String(status ?? "").toUpperCase());
+}
+
 function OrderCompletePage() {
     const [params] = useSearchParams();
     const orderId = params.get("orderId") ?? "";
@@ -50,36 +56,69 @@ function OrderCompletePage() {
     // 결제 확인 완료 후 주문 상세 조회
     const { data: order, isLoading: isOrderLoading } = useOrderDetailQuery(orderId);
 
+    const canRequestPaymentConfirm = Boolean(paymentKey && orderId && fallbackAmount > 0);
+    const isOrderPaid = isPaidOrderStatus(order?.status);
     const isConfirming = confirmMutation.isPending;
     const confirmError = confirmMutation.error;
+    const hasPaymentConfirmation = confirmMutation.isSuccess || isOrderPaid;
+    const needsPaymentAttention = !hasPaymentConfirmation && (!canRequestPaymentConfirm || Boolean(confirmError));
     const isLoading = isConfirming || isOrderLoading;
 
     const displayAmount = order?.totalAmount ?? fallbackAmount;
     const displayPayment = order?.paymentMethod ?? "토스페이먼츠";
-    const displayStatus = order?.statusLabel ?? (isConfirming ? "결제 확인 중..." : "결제완료");
+    const displayStatus = order?.statusLabel ?? (isConfirming
+        ? "결제 확인 중..."
+        : hasPaymentConfirmation
+            ? "결제완료"
+            : "결제 확인 필요");
     const orderItems = order?.items ?? [];
+    const heroClassName = isConfirming
+        ? "border-blue-200 bg-blue-50/80 text-blue-900 shadow-[0_14px_45px_rgba(59,130,246,0.15)] dark:border-blue-300/30 dark:bg-blue-400/10 dark:text-blue-100"
+        : hasPaymentConfirmation
+            ? "border-emerald-200 bg-emerald-50/80 text-emerald-900 shadow-[0_14px_45px_rgba(16,185,129,0.15)] dark:border-emerald-300/30 dark:bg-emerald-400/10 dark:text-emerald-100"
+            : "border-amber-200 bg-amber-50/80 text-amber-900 shadow-[0_14px_45px_rgba(245,158,11,0.18)] dark:border-amber-300/30 dark:bg-amber-400/10 dark:text-amber-100";
+    const heroEyebrow = isConfirming
+        ? "Payment Verifying"
+        : hasPaymentConfirmation
+            ? "Payment Confirmed"
+            : "Payment Attention";
+    const heroTitle = isConfirming
+        ? "결제를 확인하고 있습니다..."
+        : hasPaymentConfirmation
+            ? "결제가 확인되었습니다"
+            : "결제 확인이 필요합니다";
+    const heroDescription = isConfirming
+        ? "토스페이먼츠 결제 승인을 처리 중입니다. 잠시만 기다려 주세요."
+        : hasPaymentConfirmation
+            ? "주문이 정상 접수되었고, 배송/티켓 발급 상태는 주문내역에서 확인할 수 있습니다."
+            : "현재 화면만으로는 결제 확정을 보장할 수 없습니다. 주문 상태와 결제 승인 결과를 먼저 확인해 주세요.";
 
     return (
         <div className="mx-auto max-w-3xl space-y-6">
-            <section className="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-6 text-emerald-900 shadow-[0_14px_45px_rgba(16,185,129,0.15)] sm:p-8 dark:border-emerald-300/30 dark:bg-emerald-400/10 dark:text-emerald-100">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em]">Payment Success</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight">
-                    {isConfirming ? "결제를 확인하고 있습니다..." : "결제가 완료되었습니다"}
-                </h2>
-                <p className="mt-2 text-sm">
-                    {isConfirming
-                        ? "토스페이먼츠 결제 승인을 처리 중입니다. 잠시만 기다려 주세요."
-                        : "주문이 정상 접수되었고, 배송/티켓 발급 상태는 주문내역에서 확인할 수 있습니다."}
-                </p>
+            <section className={`rounded-3xl border p-6 sm:p-8 ${heroClassName}`}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">{heroEyebrow}</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight">{heroTitle}</h2>
+                <p className="mt-2 text-sm">{heroDescription}</p>
             </section>
 
             {/* 결제 확인 에러 */}
-            {confirmError && (
+            {confirmError && !hasPaymentConfirmation && (
                 <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>결제 승인 실패</AlertTitle>
                     <AlertDescription>
                         {confirmError?.message ?? "결제 승인 중 오류가 발생했습니다. 주문 상세에서 상태를 확인해 주세요."}
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {!canRequestPaymentConfirm && !hasPaymentConfirmation && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>결제 승인 요청 정보가 없습니다</AlertTitle>
+                    <AlertDescription>
+                        `paymentKey`, `orderId`, `amount` 중 일부가 없어 결제 확인 API를 호출하지 못했습니다. 이 경우 주문이 실제로
+                        `PAID` 처리되지 않아 매출 집계에 반영되지 않을 수 있습니다.
                     </AlertDescription>
                 </Alert>
             )}
@@ -96,7 +135,11 @@ function OrderCompletePage() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                {needsPaymentAttention ? (
+                                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                                ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                )}
                                 주문 정보
                             </CardTitle>
                         </CardHeader>
