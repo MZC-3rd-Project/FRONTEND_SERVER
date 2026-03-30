@@ -20,8 +20,7 @@ import { useCartQuery } from "@/domains/client/cart/query/useCartQueries";
 import { useAuthStore } from "@/common/store/useAuthStore.js";
 import { formatPrice, parsePriceText } from "@/domains/client/common/utils/format.js";
 import { useCancelOrderMutation } from "@/domains/client/order/query/useOrderQueries";
-import { useAddresses } from "@/domains/client/address/query/useAddressQueries";
-import { useCreateAddress, useSetDefaultAddress } from "@/domains/client/address/hook/useAddressQuery";
+import { useAddresses, useCreateAddress, useSetDefaultAddress } from "@/domains/client/address/query/useAddressQueries";
 import { useKakaoPostcode } from "@/domains/client/address/hook/useKakaoPostcode";
 import { findStoreProduct } from "@/domains/client/store/mock/storeData.js";
 import {
